@@ -1,6 +1,6 @@
 # Kernel Breach
 
-Kernel Breach can be installed in two ways.
+Kernel Breach can be installed two ways.
 
 If you want the script-based setup, use `setup.sh`. This is the preferred method for running the game from source on macOS or Linux. The script checks for Node.js 18 or newer, installs it if needed, creates a local launcher, and sets up a `kernelbreach` command you can run from your terminal.
 

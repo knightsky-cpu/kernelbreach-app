@@ -1,0 +1,6 @@
+*
+!.gitignore
+!setup.sh
+!dist/
+dist/*
+!dist/game.mjs

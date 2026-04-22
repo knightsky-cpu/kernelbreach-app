@@ -2443,6 +2443,13 @@ function detectPlayerBackend() {
       probeArgs: ["-h"],
       args: (trackPath) => [trackPath]
     }
+  ] : process.platform === "win32" ? [
+    {
+      name: "ffplay",
+      command: "ffplay",
+      probeArgs: ["-version"],
+      args: (trackPath) => ["-nodisp", "-autoexit", "-loglevel", "quiet", trackPath]
+    }
   ] : process.platform === "linux" ? [
     {
       name: "ffplay",

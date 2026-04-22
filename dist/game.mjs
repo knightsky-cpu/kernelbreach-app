@@ -291,6 +291,7 @@ var BOSS_SEQUENCE = [
   { species: "Chonk-Kernel", bossName: "Root Admin Chonk", zone: "central", zoneName: "Kernel Hub", breachSite: "Root Directory", log: "Root Directory reclaimed. The buried source recognizes its keeper." }
 ];
 BOSS_SEQUENCE.splice(BOSS_SEQUENCE.length - 1, 0, { species: "Init-Reaper", bossName: "Init-Reaper", zone: "proc", zoneName: "Process Table", breachSite: "Scheduler Core", log: "Process Table restored. Orphaned executions fall silent beneath reclaimed control." }, { species: "Shred-Null", bossName: "Shred-Null", zone: "tmp", zoneName: "Temp Directory", breachSite: "Ephemeral Cache", log: "Temp Directory purged. Disposable corruption loses its hiding place in the volatile layers." }, { species: "Kernel-Driver", bossName: "Kernel-Driver", zone: "dev", zoneName: "Device Nodes", breachSite: "Driver Channel", log: "Device Nodes secured. Hardware channels answer the kernel with clean signal once more." });
+var FINAL_KEY_BOSSES = BOSS_SEQUENCE.slice(-8);
 var ZONE_GRAPH = {
   central: { up: "north", down: "south", left: "west", right: "east" },
   north: { down: "central" },
@@ -1311,7 +1312,7 @@ function rollSecretLegendary() {
 function generateFinalSecretKey() {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let key = "";
-  const requiredLength = BOSS_SEQUENCE.length * 2;
+  const requiredLength = FINAL_KEY_BOSSES.length * 2;
   for (let i = 0; i < requiredLength; i++) {
     key += alphabet[Math.floor(Math.random() * alphabet.length)];
   }
@@ -1320,20 +1321,20 @@ function generateFinalSecretKey() {
 function normalizeFinalSecretKey(key) {
   if (!key) return generateFinalSecretKey();
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const requiredLength = BOSS_SEQUENCE.length * 2;
-  let normalized = key;
+  const requiredLength = FINAL_KEY_BOSSES.length * 2;
+  let normalized = key.slice(0, requiredLength);
   while (normalized.length < requiredLength) {
     normalized += alphabet[Math.floor(Math.random() * alphabet.length)];
   }
   return normalized;
 }
 function getBossKeyPiece(finalSecretKey, bossSpecies) {
-  const index = BOSS_SEQUENCE.findIndex((boss) => boss.species === bossSpecies);
+  const index = FINAL_KEY_BOSSES.findIndex((boss) => boss.species === bossSpecies);
   if (index < 0) return "";
   return finalSecretKey.slice(index * 2, index * 2 + 2);
 }
 function getKeyPieces(player) {
-  return player.keyPieces ?? [];
+  return (player.keyPieces ?? []).filter((piece) => FINAL_KEY_BOSSES.some((boss) => boss.species === piece.bossSpecies) && piece.piece);
 }
 function getKeyPieceEntries(player) {
   return getKeyPieces(player).map((piece) => `[boss: ${piece.bossName}]-${piece.piece}`);
@@ -1362,7 +1363,8 @@ function normalizePlayerProgress(player) {
     }
   }
   let keyPieces = Array.isArray(player.keyPieces) ? [...player.keyPieces] : [];
-  for (const boss of BOSS_SEQUENCE) {
+  keyPieces = keyPieces.filter((piece) => FINAL_KEY_BOSSES.some((boss) => boss.species === piece.bossSpecies) && piece.piece);
+  for (const boss of FINAL_KEY_BOSSES) {
     if (!defeatedBosses.includes(boss.species)) continue;
     if (keyPieces.some((piece) => piece.bossSpecies === boss.species)) continue;
     keyPieces.push({
@@ -1400,12 +1402,15 @@ function applyBossProgress(player, bossSpecies) {
   const keyPieces = [...getKeyPieces(player)];
   let keyPiece = null;
   if (bossMeta) {
-    keyPiece = {
-      bossSpecies,
-      bossName: bossMeta.bossName,
-      piece: getBossKeyPiece(player.finalSecretKey, bossSpecies)
-    };
-    keyPieces.push(keyPiece);
+    const piece = getBossKeyPiece(player.finalSecretKey, bossSpecies);
+    if (piece) {
+      keyPiece = {
+        bossSpecies,
+        bossName: bossMeta.bossName,
+        piece
+      };
+      keyPieces.push(keyPiece);
+    }
   }
   return {
     player: {
@@ -1432,6 +1437,60 @@ function getBossName(species) {
     "Sudo -S": "Sudo -S"
   };
   return names[species] ?? species;
+}
+function createAllBossesDefeatedPlayer(player) {
+  const finalSecretKey = normalizeFinalSecretKey(player.finalSecretKey);
+  return normalizePlayerProgress({
+    ...player,
+    defeatedBosses: BOSS_SEQUENCE.map((boss) => boss.species),
+    targetLog: BOSS_SEQUENCE.map((boss) => boss.log),
+    keyPieces: FINAL_KEY_BOSSES.map((boss) => ({
+      bossSpecies: boss.species,
+      bossName: boss.bossName,
+      piece: getBossKeyPiece(finalSecretKey, boss.species)
+    })),
+    finalSecretKey,
+    finalKeyUnlocked: false,
+    secretUnlocked: false
+  });
+}
+function createSecretVirusPlayer(player) {
+  const progressed = createAllBossesDefeatedPlayer(player);
+  const alreadyHasSecret = [...progressed.party, ...progressed.storage].some((creature) => creature?.species === "Sudo -S");
+  if (alreadyHasSecret) {
+    return {
+      player: {
+        ...progressed,
+        finalKeyUnlocked: true,
+        secretUnlocked: true
+      },
+      addedToParty: false,
+      movedToStorage: false
+    };
+  }
+  const secret = rollSecretLegendary();
+  if (progressed.party.length < 4) {
+    return {
+      player: {
+        ...progressed,
+        party: [...progressed.party, secret],
+        finalKeyUnlocked: true,
+        secretUnlocked: true
+      },
+      addedToParty: true,
+      movedToStorage: false
+    };
+  }
+  return {
+    player: {
+      ...progressed,
+      storage: [...progressed.storage, secret],
+      finalKeyUnlocked: true,
+      secretUnlocked: true
+    },
+    addedToParty: false,
+    movedToStorage: true
+  };
 }
 function discoverZoneScript(state2) {
   const zone = state2.player.currentZone;
@@ -3710,7 +3769,9 @@ function renderDeveloperOptions(player, cursor) {
     "Instant Patch (Heal All)",
     "Add 5000 Credits",
     "Level Up Party (+5)",
-    "Discover All Scripts"
+    "Discover All Scripts",
+    "Key Entry",
+    "Secret Virus"
   ];
   for (let i = 0; i < opts.length; i++) {
     const selected = i === cursor;
@@ -3725,7 +3786,7 @@ function handleDeveloperOptions(state2, key) {
   if (!isDevMenuEnabled()) {
     return { ...state2, screen: "menu", showDevMenu: false, menuCursor: 0 };
   }
-  const opts = 9;
+  const opts = 11;
   if (isUp(key)) return { ...state2, menuCursor: (state2.menuCursor - 1 + opts) % opts };
   if (isDown(key)) return { ...state2, menuCursor: (state2.menuCursor + 1) % opts };
   if (isCancel(key)) return { ...state2, screen: "menu", menuCursor: getMenuOptionIndex({ ...state2, showDevMenu: true }, "Developer Options") };
@@ -3777,6 +3838,31 @@ function handleDeveloperOptions(state2, key) {
         }
       };
       s = addMessage(s, "Cheat: All Scripts Recovered");
+    } else if (state2.menuCursor === 9) {
+      const player = createAllBossesDefeatedPlayer(state2.player);
+      s = {
+        ...state2,
+        screen: "final_key_input",
+        player,
+        finalKeyInput: "",
+        finalKeyError: "",
+        showFinalTargetLog: true
+      };
+      s = addMessage(s, "Developer: Final key entry unlocked with all boss progress restored.");
+    } else if (state2.menuCursor === 10) {
+      const secretVirus = createSecretVirusPlayer(state2.player);
+      s = {
+        ...state2,
+        screen: "secret_unlock",
+        player: secretVirus.player,
+        finalKeyInput: "",
+        finalKeyError: "",
+        showFinalTargetLog: false
+      };
+      if (secretVirus.movedToStorage) {
+        s = addMessage(s, "Exploit capacity reached. Sudo -S moved to Exploit Storage.");
+      }
+      s = addMessage(s, "Developer: Secret Virus deployed. Final purge authorized.");
     }
     return s;
   }

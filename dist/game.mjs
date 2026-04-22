@@ -1384,7 +1384,10 @@ function normalizePlayerProgress(player) {
     finalSecretKey,
     finalKeyUnlocked: player.finalKeyUnlocked ?? player.secretUnlocked ?? false,
     secretUnlocked: player.secretUnlocked ?? player.finalKeyUnlocked ?? false,
-    noEncounters: player.noEncounters ?? false
+    noEncounters: player.noEncounters ?? false,
+    bgmMuted: player.bgmMuted ?? false,
+    audioDebug: player.audioDebug ?? false,
+    verboseDebug: player.verboseDebug ?? false
   };
 }
 function applyBossProgress(player, bossSpecies) {
@@ -1630,7 +1633,7 @@ function hasScriptsMenuAccess(state2) {
 function getMenuOptions(state2) {
   const opts = ["Resume", "Exploits", "Saved Exploits"];
   if (hasScriptsMenuAccess(state2)) opts.push("Scripts");
-  opts.push("Patches", "Save Game", "Quit to Title");
+  opts.push("Patches", state2.player?.bgmMuted ? "Unmute BGM" : "Mute BGM", "Save Game", "Quit to Title");
   if (isDevMenuEnabled() && state2.showDevMenu) opts.push("Developer Options");
   return opts;
 }
@@ -2213,6 +2216,8 @@ function isPartyWiped(party) {
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
+import { Readable } from "stream";
+import { fileURLToPath } from "url";
 var MAX_SAVE_SLOTS = 3;
 function getSaveDir() {
   const home = os.homedir();
@@ -2244,6 +2249,7 @@ function saveGame(state2, slot) {
     player: state2.player
   };
   fs.writeFileSync(getSlotPath(slot), JSON.stringify(saveData, null, 2), "utf8");
+  engineDebug(`save slot=${slot} player=${state2.player?.name ?? "unknown"} zone=${state2.player?.currentZone ?? "unknown"} screen=${state2.screen}`);
 }
 function loadGame(slot) {
   const p = getSlotPath(slot);
@@ -2254,8 +2260,10 @@ function loadGame(slot) {
     if (parsed?.player) {
       parsed.player = normalizePlayerProgress(parsed.player);
     }
+    engineDebug(`load slot=${slot} player=${parsed?.player?.name ?? "unknown"} zone=${parsed?.player?.currentZone ?? "unknown"}`);
     return parsed;
   } catch {
+    engineDebug(`load failed slot=${slot}`);
     return null;
   }
 }
@@ -2285,6 +2293,438 @@ function getSaveSlots() {
     }
   });
 }
+
+// src/systems/audio.ts
+var AUDIO_TRACKS = {
+  title: { id: "title", file: "title.wav", loop: true },
+  overworld: { id: "overworld", file: "overworld.wav", loop: true },
+  dungeon: { id: "dungeon", file: "dungeon.wav", loop: true },
+  battle: { id: "battle", file: "battle.wav", loop: true },
+  boss: { id: "boss", file: "boss.wav", loop: true },
+  victory: { id: "victory", file: "victory.wav", loop: true },
+  game_over: { id: "game_over", file: "game_over.wav", loop: true }
+};
+var AUDIO_CONTEXT_SCREENS = /* @__PURE__ */ new Set([
+  "menu",
+  "inventory",
+  "item_target",
+  "party_view",
+  "stat_upgrade",
+  "storage_view",
+  "shop",
+  "save_select",
+  "scripts_terminal",
+  "developer_options"
+]);
+function getAudioDir() {
+  const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+  const bundledDir = path.join(path.dirname(process.execPath), "assets", "audio");
+  if (process.pkg && fs.existsSync(bundledDir)) {
+    return bundledDir;
+  }
+  return path.resolve(moduleDir, "../assets/audio");
+}
+function getAudioTrackPath(trackId) {
+  const track = AUDIO_TRACKS[trackId];
+  if (!track) return null;
+  return path.join(getAudioDir(), track.file);
+}
+function parseWavBuffer(buffer) {
+  if (buffer.length < 44) {
+    throw new Error("WAV file too small.");
+  }
+  if (buffer.toString("ascii", 0, 4) !== "RIFF" || buffer.toString("ascii", 8, 12) !== "WAVE") {
+    throw new Error("Unsupported WAV container.");
+  }
+  let offset = 12;
+  let fmt = null;
+  let data = null;
+  while (offset + 8 <= buffer.length) {
+    const chunkId = buffer.toString("ascii", offset, offset + 4);
+    const chunkSize = buffer.readUInt32LE(offset + 4);
+    const chunkStart = offset + 8;
+    const chunkEnd = chunkStart + chunkSize;
+    if (chunkEnd > buffer.length) break;
+    if (chunkId === "fmt ") {
+      fmt = {
+        audioFormat: buffer.readUInt16LE(chunkStart),
+        channels: buffer.readUInt16LE(chunkStart + 2),
+        sampleRate: buffer.readUInt32LE(chunkStart + 4),
+        bitDepth: buffer.readUInt16LE(chunkStart + 14)
+      };
+    } else if (chunkId === "data") {
+      data = buffer.subarray(chunkStart, chunkEnd);
+    }
+    offset = chunkEnd + chunkSize % 2;
+  }
+  if (!fmt || !data) {
+    throw new Error("WAV file is missing required chunks.");
+  }
+  if (fmt.audioFormat !== 1 && fmt.audioFormat !== 3) {
+    throw new Error(`Unsupported WAV format ${fmt.audioFormat}.`);
+  }
+  return {
+    channels: fmt.channels,
+    sampleRate: fmt.sampleRate,
+    bitDepth: fmt.bitDepth,
+    float: fmt.audioFormat === 3,
+    signed: fmt.audioFormat !== 3,
+    pcmData: data
+  };
+}
+var AUDIO_RUNTIME_ENABLED = process.env.KERNELBREACH_ENABLE_AUDIO !== "0";
+var audioDebugEnabled = process.env.KERNELBREACH_AUDIO_DEBUG === "1";
+var engineDebugEnabled = process.env.KERNELBREACH_VERBOSE_DEBUG === "1";
+var DEBUG_LOG_LIMIT = 160;
+var debugLogBuffer = [];
+function appendDebugLog(channel, message) {
+  debugLogBuffer.push({ channel, message, at: new Date().toLocaleTimeString() });
+  if (debugLogBuffer.length > DEBUG_LOG_LIMIT) {
+    debugLogBuffer = debugLogBuffer.slice(-DEBUG_LOG_LIMIT);
+  }
+}
+function engineDebug(message) {
+  appendDebugLog("engine", message);
+  if (!engineDebugEnabled) return;
+  try {
+    process.stderr.write(`[engine] ${message}
+`);
+  } catch {
+  }
+}
+function setEngineDebugEnabled(enabled) {
+  engineDebugEnabled = enabled;
+  engineDebug(`verbose debug ${enabled ? "enabled" : "disabled"}`);
+}
+function audioDebug(message) {
+  appendDebugLog("audio", message);
+  if (!audioDebugEnabled) return;
+  try {
+    process.stderr.write(`[audio] ${message}
+`);
+  } catch {
+  }
+}
+function setAudioDebugEnabled(enabled) {
+  audioDebugEnabled = enabled;
+  audioDebug(`audio debug ${enabled ? "enabled" : "disabled"}`);
+}
+var speakerConstructorPromise = null;
+function loadSpeakerConstructor() {
+  if (!speakerConstructorPromise) {
+    audioDebug("loading speaker module");
+    speakerConstructorPromise = import("speaker").then((mod) => {
+      audioDebug("speaker module loaded");
+      return mod.default ?? mod;
+    }).catch((error) => {
+      audioDebug(`failed to load speaker module: ${error?.message ?? error}`);
+      return null;
+    });
+  }
+  return speakerConstructorPromise;
+}
+var LoopingPcmStream = class extends Readable {
+  constructor(pcmData, loop, options = {}) {
+    super({ highWaterMark: options.highWaterMark ?? 8192 });
+    this.pcmData = pcmData;
+    this.loop = loop;
+    this.offset = 0;
+    this.chunkSize = options.chunkSize ?? 2048;
+    this.stopped = false;
+    this.muted = options.muted ?? false;
+    this.frameBytes = Math.max(1, options.frameBytes ?? 1);
+  }
+  setMuted(muted) {
+    this.muted = muted;
+  }
+  setTrack(pcmData, loop) {
+    this.pcmData = pcmData;
+    this.loop = loop;
+    this.offset = 0;
+    this.stopped = false;
+    this.read(0);
+  }
+  _read(size) {
+    if (this.stopped) {
+      this.push(null);
+      return;
+    }
+    const requested = Math.max(this.chunkSize, size || 0);
+    const safeSize = Math.max(this.frameBytes, requested - requested % this.frameBytes);
+    if (this.muted) {
+      this.push(Buffer.alloc(safeSize));
+      return;
+    }
+    while (!this.stopped) {
+      if (this.offset >= this.pcmData.length) {
+        if (!this.loop) {
+          this.push(null);
+          this.stopped = true;
+          return;
+        }
+        this.offset = 0;
+        if (this.pcmData.length === 0) {
+          this.push(null);
+          this.stopped = true;
+          return;
+        }
+      }
+      const end = Math.min(this.pcmData.length, this.offset + safeSize);
+      const chunk = this.pcmData.subarray(this.offset, end);
+      this.offset = end;
+      if (!this.push(chunk)) {
+        return;
+      }
+      if (chunk.length >= safeSize) {
+        return;
+      }
+    }
+  }
+  _destroy(error, callback) {
+    this.stopped = true;
+    callback(error);
+  }
+};
+function createAudioManager() {
+  let muted = false;
+  let currentTrackId = null;
+  let currentSource = null;
+  let currentSpeaker = null;
+  let playbackSerial = 0;
+  const trackCache = /* @__PURE__ */ new Map();
+  const silenceCache = /* @__PURE__ */ new Map();
+  let currentFormatKey = null;
+  function getFormatKey(wav) {
+    return [wav.sampleRate, wav.channels, wav.bitDepth, wav.float ? "f" : "i", wav.signed ? "s" : "u"].join(":");
+  }
+  function loadTrackData(trackId) {
+    if (trackCache.has(trackId)) return trackCache.get(trackId);
+    const track = AUDIO_TRACKS[trackId];
+    if (!track) return null;
+    const trackPath = getAudioTrackPath(trackId);
+    audioDebug(`startTrack requested id=${trackId} path=${trackPath}`);
+    if (!trackPath || !fs.existsSync(trackPath)) {
+      audioDebug(`track file missing for ${trackId}`);
+      return null;
+    }
+    try {
+      const wav = parseWavBuffer(fs.readFileSync(trackPath));
+      const loaded = { ...wav, formatKey: getFormatKey(wav) };
+      trackCache.set(trackId, loaded);
+      audioDebug(`parsed wav for ${trackId}: ${wav.sampleRate}Hz ${wav.channels}ch ${wav.bitDepth}bit bytes=${wav.pcmData.length}`);
+      return loaded;
+    } catch {
+      audioDebug(`failed to parse wav for ${trackId}`);
+      return null;
+    }
+  }
+  function getSilenceTrackData(formatKey = currentFormatKey) {
+    if (!formatKey) return null;
+    if (silenceCache.has(formatKey)) return silenceCache.get(formatKey);
+    const [sampleRateRaw, channelsRaw, bitDepthRaw, floatFlag, signedFlag] = formatKey.split(":");
+    const sampleRate = Number(sampleRateRaw);
+    const channels = Number(channelsRaw);
+    const bitDepth = Number(bitDepthRaw);
+    const frameBytes = channels * Math.max(1, bitDepth / 8);
+    const pcmData = Buffer.alloc(frameBytes * 2048);
+    const silence = {
+      sampleRate,
+      channels,
+      bitDepth,
+      float: floatFlag === "f",
+      signed: signedFlag === "s",
+      pcmData,
+      formatKey
+    };
+    silenceCache.set(formatKey, silence);
+    return silence;
+  }
+  function teardown() {
+    playbackSerial++;
+    audioDebug(`teardown playback serial=${playbackSerial}`);
+    const source = currentSource;
+    const speaker = currentSpeaker;
+    currentSource = null;
+    currentSpeaker = null;
+    currentFormatKey = null;
+    if (source) {
+      try {
+        source.unpipe?.();
+      } catch {
+      }
+      try {
+        source.destroy?.();
+      } catch {
+      }
+    }
+    if (speaker) {
+      try {
+        speaker.end?.();
+      } catch {
+      }
+      try {
+        speaker.destroy?.();
+      } catch {
+      }
+    }
+  }
+  function ensurePlayback(trackId, trackData) {
+    const track = AUDIO_TRACKS[trackId];
+    if (!track || !trackData) return;
+    if (currentSource && currentSpeaker && currentFormatKey === trackData.formatKey) {
+      currentSource.setTrack(trackData.pcmData, track.loop);
+      currentSource.setMuted(muted);
+      currentTrackId = trackId;
+      audioDebug(`swapped active track to ${trackId} without recreating speaker`);
+      return;
+    }
+    teardown();
+    currentTrackId = trackId;
+    const serial = playbackSerial;
+    loadSpeakerConstructor().then((SpeakerCtor) => {
+      if (!SpeakerCtor || playbackSerial !== serial || currentTrackId !== trackId) {
+        audioDebug(`speaker start aborted for ${trackId}: ctor=${!!SpeakerCtor} serial_ok=${playbackSerial === serial} muted=${muted} current=${currentTrackId}`);
+        return;
+      }
+      const frameBytes = trackData.channels * Math.max(1, trackData.bitDepth / 8);
+      const source = new LoopingPcmStream(trackData.pcmData, track.loop, { muted, frameBytes });
+      const speaker = new SpeakerCtor({
+        channels: trackData.channels,
+        sampleRate: trackData.sampleRate,
+        bitDepth: trackData.bitDepth,
+        float: trackData.float,
+        signed: trackData.signed,
+        samplesPerFrame: 256
+      });
+      audioDebug(`speaker created for ${trackId}`);
+      let settled = false;
+      const finishPlayback = () => {
+        if (settled) return;
+        settled = true;
+        if (playbackSerial !== serial) return;
+        currentSource = null;
+        currentSpeaker = null;
+        currentFormatKey = null;
+        audioDebug(`playback finished for ${trackId}`);
+      };
+      const failPlayback = () => {
+        if (settled) return;
+        settled = true;
+        if (playbackSerial !== serial) return;
+        currentSource = null;
+        currentSpeaker = null;
+        currentFormatKey = null;
+        audioDebug(`playback failed for ${trackId}`);
+      };
+      currentSource = source;
+      currentSpeaker = speaker;
+      currentFormatKey = trackData.formatKey;
+      source.once("error", (error) => {
+        audioDebug(`source error for ${trackId}: ${error?.message ?? error}`);
+        failPlayback();
+      });
+      source.once("end", finishPlayback);
+      speaker.once("close", finishPlayback);
+      speaker.once("finish", finishPlayback);
+      speaker.once("open", () => {
+        audioDebug(`speaker open for ${trackId}`);
+      });
+      speaker.once("flush", () => {
+        audioDebug(`speaker flush for ${trackId}`);
+      });
+      speaker.once("error", (error) => {
+        audioDebug(`speaker error for ${trackId}: ${error?.message ?? error}`);
+        failPlayback();
+      });
+      audioDebug(`piping pcm to speaker for ${trackId}`);
+      source.pipe(speaker);
+    }).catch(() => {
+      audioDebug(`unexpected rejection while starting ${trackId}`);
+    });
+  }
+  function switchToSilence(reason) {
+    const silenceTrack = getSilenceTrackData();
+    if (currentSource && currentSpeaker && silenceTrack) {
+      currentSource.setTrack(silenceTrack.pcmData, true);
+      currentSource.setMuted(false);
+      currentTrackId = null;
+      audioDebug(`swapped active track to silence (${reason})`);
+      return true;
+    }
+    audioDebug(`no active speaker available for silence swap (${reason})`);
+    return false;
+  }
+  function startTrack(trackId) {
+    const track = AUDIO_TRACKS[trackId];
+    if (!track) {
+      audioDebug("no track definition found; stopping playback");
+      teardown();
+      currentTrackId = null;
+      return;
+    }
+    if (!AUDIO_RUNTIME_ENABLED) {
+      audioDebug(`audio runtime disabled; skipping track ${trackId}`);
+      switchToSilence("runtime disabled") || teardown();
+      currentTrackId = null;
+      return;
+    }
+    const trackData = loadTrackData(trackId);
+    if (!trackData) {
+      switchToSilence(`missing track ${trackId}`) || teardown();
+      currentTrackId = null;
+      return;
+    }
+    ensurePlayback(trackId, trackData);
+  }
+  return {
+    sync(trackId, nextMuted) {
+      muted = nextMuted;
+      audioDebug(`sync track=${trackId ?? "none"} muted=${muted} runtime=${AUDIO_RUNTIME_ENABLED}`);
+      if (currentSource && typeof currentSource.setMuted === "function") {
+        currentSource.setMuted(muted);
+      }
+      if (!AUDIO_RUNTIME_ENABLED || !trackId) {
+        switchToSilence(!AUDIO_RUNTIME_ENABLED ? "runtime disabled" : "no track") || teardown();
+        currentTrackId = null;
+        return;
+      }
+      if (trackId === currentTrackId) return;
+      audioDebug(`switching track from ${currentTrackId ?? "none"} to ${trackId}`);
+      startTrack(trackId);
+    },
+    async prime(trackIds = []) {
+      if (!AUDIO_RUNTIME_ENABLED) return;
+      const ids = Array.from(new Set(trackIds.filter(Boolean)));
+      const primedTracks = ids.map((trackId) => loadTrackData(trackId)).filter(Boolean);
+      const firstTrack = primedTracks[0];
+      const SpeakerCtor = await loadSpeakerConstructor();
+      if (!SpeakerCtor || !firstTrack || currentSpeaker) return;
+      audioDebug(`prewarming speaker with ${ids[0]}`);
+      const frameBytes = firstTrack.channels * Math.max(1, firstTrack.bitDepth / 8);
+      const source = new LoopingPcmStream(firstTrack.pcmData, true, { muted: true, frameBytes });
+      const speaker = new SpeakerCtor({
+        channels: firstTrack.channels,
+        sampleRate: firstTrack.sampleRate,
+        bitDepth: firstTrack.bitDepth,
+        float: firstTrack.float,
+        signed: firstTrack.signed,
+        samplesPerFrame: 256
+      });
+      currentSource = source;
+      currentSpeaker = speaker;
+      currentFormatKey = firstTrack.formatKey;
+      currentTrackId = ids[0];
+      source.pipe(speaker);
+    },
+    shutdown() {
+      muted = true;
+      currentTrackId = null;
+      audioDebug("audio manager shutdown");
+      teardown();
+    }
+  };
+}
+var audioManager = createAudioManager();
 
 // src/sprites.ts
 var BODIES = {
@@ -3460,6 +3900,9 @@ function renderDeveloperOptions(player, cursor) {
   const rows = [];
   rows.push(topBorder("DEVELOPER OPTIONS", W));
   const opts = [
+    `Audio Debug: ${player.audioDebug ? color("ON", GREEN) : color("OFF", RED)}`,
+    `Verbose Debug: ${player.verboseDebug ? color("ON", GREEN) : color("OFF", RED)}`,
+    "View Debug Log",
     `Unlock All Dungeons: ${player.allDungeonsUnlocked ? color("ON", GREEN) : color("OFF", RED)}`,
     `No Encounter: ${player.noEncounters ? color("ON", GREEN) : color("OFF", RED)}`,
     "Instant Patch (Heal All)",
@@ -3480,28 +3923,38 @@ function handleDeveloperOptions(state2, key) {
   if (!isDevMenuEnabled()) {
     return { ...state2, screen: "menu", showDevMenu: false, menuCursor: 0 };
   }
-  const opts = 6;
+  const opts = 9;
   if (isUp(key)) return { ...state2, menuCursor: (state2.menuCursor - 1 + opts) % opts };
   if (isDown(key)) return { ...state2, menuCursor: (state2.menuCursor + 1) % opts };
   if (isCancel(key)) return { ...state2, screen: "menu", menuCursor: getMenuOptionIndex({ ...state2, showDevMenu: true }, "Developer Options") };
   if (isConfirm(key)) {
     let s = state2;
     if (state2.menuCursor === 0) {
+      const next = !state2.player.audioDebug;
+      s = { ...state2, player: { ...state2.player, audioDebug: next } };
+      s = addMessage(s, `Developer: Audio Debug ${next ? "Enabled" : "Disabled"}`);
+    } else if (state2.menuCursor === 1) {
+      const next = !state2.player.verboseDebug;
+      s = { ...state2, player: { ...state2.player, verboseDebug: next } };
+      s = addMessage(s, `Developer: Verbose Debug ${next ? "Enabled" : "Disabled"}`);
+    } else if (state2.menuCursor === 2) {
+      s = { ...state2, screen: "debug_log", previousScreen: "developer_options", menuCursor: 0 };
+    } else if (state2.menuCursor === 3) {
       const next = !state2.player.allDungeonsUnlocked;
       s = { ...state2, player: { ...state2.player, allDungeonsUnlocked: next } };
       s = addMessage(s, `Cheat: All Dungeons ${next ? "Unlocked" : "Gated"}`);
-    } else if (state2.menuCursor === 1) {
+    } else if (state2.menuCursor === 4) {
       const next = !state2.player.noEncounters;
       s = { ...state2, player: { ...state2.player, noEncounters: next } };
       s = addMessage(s, `Cheat: Random Encounters ${next ? "Disabled" : "Enabled"}`);
-    } else if (state2.menuCursor === 2) {
+    } else if (state2.menuCursor === 5) {
       const party = state2.player.party.map(healFully);
       s = { ...state2, player: { ...state2.player, party } };
       s = addMessage(s, "Cheat: Party Restored");
-    } else if (state2.menuCursor === 3) {
+    } else if (state2.menuCursor === 6) {
       s = { ...state2, player: { ...state2.player, gold: state2.player.gold + 5e3 } };
       s = addMessage(s, "Cheat: +5000 Credits");
-    } else if (state2.menuCursor === 4) {
+    } else if (state2.menuCursor === 7) {
       const newParty = state2.player.party.map((c) => {
         let cur = c;
         for (let i = 0; i < 5; i++) {
@@ -3512,7 +3965,7 @@ function handleDeveloperOptions(state2, key) {
       });
       s = { ...state2, player: { ...state2.player, party: newParty } };
       s = addMessage(s, "Cheat: +5 Levels to Party");
-    } else if (state2.menuCursor === 5) {
+    } else if (state2.menuCursor === 8) {
       s = {
         ...state2,
         player: {
@@ -3587,6 +4040,26 @@ function renderFinalKeyInput(state2) {
   }
   rows.push(bottomBorder(W));
   rows.push(dim("Enter: Validate key   L: Toggle Target-Log"));
+  renderFrame(rows);
+}
+function renderDebugLog(state2) {
+  const W = getGameWidth();
+  const rows = [];
+  rows.push(topBorder("DEBUG LOG", W));
+  const available = Math.max(6, getTerminalSize().rows - 5);
+  const entries = debugLogBuffer.slice(-available);
+  if (entries.length === 0) {
+    rows.push(`│ ${pad(dim("No debug entries recorded."), W - 4)} │`);
+  } else {
+    for (const entry of entries) {
+      const line = `[${entry.channel}] ${entry.at} ${entry.message}`;
+      for (const wrapped of wrapText(line, W - 4)) {
+        rows.push(`│ ${pad(entry.channel === "audio" ? color(wrapped, BRIGHT_CYAN) : color(wrapped, BRIGHT_YELLOW), W - 4)} │`);
+      }
+    }
+  }
+  rows.push(bottomBorder(W));
+  rows.push(dim("X: Back"));
   renderFrame(rows);
 }
 function appendScriptTerminalLog(state2, ...lines) {
@@ -3703,6 +4176,12 @@ function handleScriptsTerminal(state2, key) {
   }
   return state2;
 }
+function handleDebugLog(state2, key) {
+  if (isCancel(key) || isConfirm(key)) {
+    return { ...state2, screen: state2.previousScreen ?? "developer_options", menuCursor: 0 };
+  }
+  return state2;
+}
 
 // src/engine/game.ts
 var ENCOUNTER_RATE = 0.2;
@@ -3745,11 +4224,52 @@ function createNewPlayer(name) {
     playtime: 0,
     devMode: false,
     allDungeonsUnlocked: false,
-    noEncounters: false
+    noEncounters: false,
+    bgmMuted: false,
+    audioDebug: false,
+    verboseDebug: false
   };
 }
 function addMessage(state2, msg) {
   return { ...state2, messages: [...state2.messages.slice(-20), msg] };
+}
+function getAudioContextScreen(state2) {
+  if (!state2) return "title";
+  if (state2.screen === "battle") return "battle";
+  if (state2.screen === "dungeon") return "dungeon";
+  if (state2.screen === "overworld") return "overworld";
+  if (state2.screen === "game_over") return "game_over";
+  if (state2.screen === "secret_unlock" || state2.screen === "final_key_input") return "victory";
+  if (state2.screen === "splash" || state2.screen === "title" || state2.screen === "new_game_name" || state2.screen === "new_game_password" || state2.screen === "story_briefing" || state2.screen === "load_game") {
+    return "title";
+  }
+  if (AUDIO_CONTEXT_SCREENS.has(state2.screen)) {
+    const context = state2.inventoryReturnScreen ?? state2.menuReturnScreen ?? state2.previousScreen;
+    if (context === "battle" && state2.battle) return "battle";
+    if (context === "dungeon") return "dungeon";
+    if (context === "overworld") return "overworld";
+  }
+  return state2.player ? "overworld" : "title";
+}
+function getDesiredBgmTrack(state2) {
+  const context = getAudioContextScreen(state2);
+  if (context === "battle") {
+    return state2.battle?.context === "boss" ? "boss" : "battle";
+  }
+  if (context === "dungeon") return "dungeon";
+  if (context === "overworld") return "overworld";
+  if (context === "title") return "title";
+  if (context === "game_over") return "game_over";
+  if (context === "victory") return "victory";
+  return null;
+}
+function syncAudioForState(state2) {
+  const muted = state2.player?.bgmMuted ?? false;
+  if (state2.player) {
+    setAudioDebugEnabled((state2.player.audioDebug ?? false) || process.env.KERNELBREACH_AUDIO_DEBUG === "1");
+    setEngineDebugEnabled((state2.player.verboseDebug ?? false) || process.env.KERNELBREACH_VERBOSE_DEBUG === "1");
+  }
+  audioManager.sync(getDesiredBgmTrack(state2), muted);
 }
 function handleSplash(state2) {
   return {
@@ -3969,6 +4489,7 @@ function handleZoneTransition(state2, dir, x, y) {
   const entryDir = oppositeDirection(dir);
   const preferredEntry = destCfg.playerEntry[entryDir];
   const safeEntry = findNearestWalkablePosition(destZone, preferredEntry.x, preferredEntry.y);
+  engineDebug(`zone transition ${zone} -> ${destZone} via ${dir} from (${x},${y}) to (${safeEntry.x},${safeEntry.y})`);
   return addMessage({
     ...state2,
     player: { ...player, currentZone: destZone, position: safeEntry }
@@ -4020,6 +4541,7 @@ function enterDungeon(state2) {
     bossDefeated: player.defeatedBosses.includes(ZONE_CONFIGS[player.currentZone].bossSpecies),
     bossPos: { ...cfg.bossPos }
   };
+  engineDebug(`enter dungeon zone=${zone} start=(${cfg.startPos.x},${cfg.startPos.y}) bossDefeated=${dungeon.bossDefeated}`);
   return addMessage({
     ...state2,
     screen: "dungeon",
@@ -4032,6 +4554,7 @@ function startWildBattle(state2) {
   if (idx < 0) return state2;
   const level = player.party[idx].level;
   const battle = createWildBattle(player.currentZone, player.party[idx], idx, level);
+  engineDebug(`start wild battle zone=${player.currentZone} player=${player.party[idx].nickname} enemy=${battle.enemy.creature.nickname} level=${battle.enemy.creature.level}`);
   return { ...state2, screen: "battle", battle, previousScreen: "overworld" };
 }
 function handleDungeon(state2, key) {
@@ -4100,6 +4623,7 @@ function moveDungeon(state2, dir) {
 function exitDungeon(state2) {
   const { dungeon, player } = state2;
   if (!dungeon) return state2;
+  engineDebug(`exit dungeon zone=${dungeon.zone} returnPos=(${dungeon.entryPos.x},${dungeon.entryPos.y})`);
   return addMessage({
     ...state2,
     screen: "overworld",
@@ -4113,6 +4637,7 @@ function startBossBattle(state2) {
   const idx = getFirstLivingIndex(player.party);
   if (idx < 0) return state2;
   const battle = createBossBattle(dungeon.zone, player.party[idx], idx);
+  engineDebug(`start boss battle zone=${dungeon.zone} player=${player.party[idx].nickname} boss=${battle.enemy.creature.nickname} level=${battle.enemy.creature.level}`);
   return addMessage({ ...state2, screen: "battle", battle, previousScreen: "dungeon" }, `A corrupted Security Daemon denies further access.`);
 }
 function startBattleSequence(state2, battleAnimation) {
@@ -4594,6 +5119,7 @@ function handleBattleWin(state2, returnScreen) {
   if (!battle) return state2;
   const xpGain = calcXpReward(battle.enemy.creature);
   const creditGain = calcCreditReward(battle.enemy.creature);
+  engineDebug(`battle win context=${battle.context} enemy=${battle.enemy.creature.nickname} xp=${xpGain} credits=${creditGain} return=${returnScreen}`);
   const { creature: leveled, leveledUp, levels } = addXp(player.party[battle.playerActiveIndex], xpGain);
   const newParty = [...player.party];
   newParty[battle.playerActiveIndex] = leveled;
@@ -4619,6 +5145,7 @@ function handleBattleWin(state2, returnScreen) {
         s = { ...s, dungeon: { ...s.dungeon, bossDefeated: true } };
       }
       if (s.player.defeatedBosses.length === TOTAL_BOSSES && !s.player.finalKeyUnlocked) {
+        engineDebug("all bosses defeated; entering final key input");
         s = {
           ...s,
           screen: "final_key_input",
@@ -4636,6 +5163,7 @@ function handleCatch(state2, caught, returnScreen) {
   const { player } = state2;
   let s = state2;
   const isBoss = caught.isBoss;
+  engineDebug(`capture success creature=${caught.nickname} boss=${isBoss} return=${returnScreen}`);
   let newParty = [...player.party];
   let newStorage = [...player.storage];
   if (newParty.length < 4) {
@@ -4661,6 +5189,7 @@ function handleCatch(state2, caught, returnScreen) {
       s = addMessage(s, `Recovered key piece ${progress.keyPiece.piece} from ${progress.keyPiece.bossName}.`);
     }
     if (s.player.defeatedBosses.length === TOTAL_BOSSES && !s.player.finalKeyUnlocked) {
+      engineDebug("all bosses captured/cleared; entering final key input");
       s = {
         ...s,
         screen: "final_key_input",
@@ -4749,6 +5278,13 @@ function handleMenu(state2, key) {
     if (selected === "Saved Exploits") return { ...state2, screen: "storage_view", menuCursor: 0, previousScreen: "menu", menuReturnScreen: prev };
     if (selected === "Scripts") return openScriptsTerminal({ ...state2, previousScreen: "menu", menuReturnScreen: prev }, "menu");
     if (selected === "Patches") return { ...state2, screen: "inventory", menuCursor: 0, previousScreen: "menu", menuReturnScreen: prev, itemUseContext: "field" };
+    if (selected === "Mute BGM" || selected === "Unmute BGM") {
+      const nextMuted = !state2.player.bgmMuted;
+      return addMessage({
+        ...state2,
+        player: { ...state2.player, bgmMuted: nextMuted }
+      }, `Audio: BGM ${nextMuted ? "Muted" : "Unmuted"}`);
+    }
     if (selected === "Save Game") return { ...state2, screen: "save_select", menuCursor: 0, previousScreen: "menu", menuReturnScreen: prev };
     if (selected === "Quit to Title") return { ...state2, screen: "title", menuCursor: 0 };
     if (selected === "Developer Options" && isDevMenuEnabled()) return { ...state2, screen: "developer_options", menuCursor: 0, previousScreen: "menu" };
@@ -4980,6 +5516,8 @@ function handleKey(state2, key) {
       return handleLoadGame(state2, key);
     case "scripts_terminal":
       return handleScriptsTerminal(state2, key);
+    case "debug_log":
+      return handleDebugLog(state2, key);
     case "final_key_input":
       return handleFinalKeyInput(state2, key);
     case "overworld":
@@ -5037,6 +5575,9 @@ function renderState(state2) {
     case "scripts_terminal":
       renderScriptsTerminal(state2);
       break;
+    case "debug_log":
+      renderDebugLog(state2);
+      break;
     case "final_key_input":
       renderFinalKeyInput(state2);
       break;
@@ -5091,49 +5632,63 @@ function renderState(state2) {
 // src/index.ts
 var state = createInitialState();
 var animationTimer;
+function commitState(next) {
+  if (next === state) return;
+  const prevScreen = state.screen;
+  const nextScreen = next.screen;
+  const prevZone = state.player?.currentZone ?? "none";
+  const nextZone = next.player?.currentZone ?? "none";
+  const prevPos = state.player?.position ? `(${state.player.position.x},${state.player.position.y})` : "n/a";
+  const nextPos = next.player?.position ? `(${next.player.position.x},${next.player.position.y})` : "n/a";
+  state = next;
+  if (prevScreen !== nextScreen || prevZone !== nextZone || prevPos !== nextPos) {
+    engineDebug(`state ${prevScreen} -> ${nextScreen} zone ${prevZone} -> ${nextZone} pos ${prevPos} -> ${nextPos}`);
+  }
+  renderState(state);
+  syncAudioForState(state);
+  scheduleAnimationTick();
+}
 function scheduleAnimationTick() {
   if (animationTimer || !state.battleAnimation && state.screen !== "splash") return;
   animationTimer = setTimeout(() => {
     animationTimer = void 0;
     const next = advanceAnimations(state);
-    if (next !== state) {
-      state = next;
-      renderState(state);
-    }
+    commitState(next);
     scheduleAnimationTick();
   }, 70);
 }
-function start() {
+async function start() {
   ensureSaveDir();
   hideCursor();
   clearScreen();
+  await audioManager.prime(["title"]);
+  syncAudioForState(state);
   renderState(state);
   scheduleAnimationTick();
   initInput((key) => {
-    const next = handleKey(state, key);
-    if (next !== state) {
-      state = next;
-      renderState(state);
-      scheduleAnimationTick();
-    }
+    commitState(handleKey(state, key));
   });
   process.on("exit", () => {
+    audioManager.shutdown();
     showCursor();
   });
   process.on("SIGINT", () => {
     if (animationTimer) clearTimeout(animationTimer);
+    audioManager.shutdown();
     showCursor();
     cleanup();
     process.exit(0);
   });
   process.on("SIGTERM", () => {
     if (animationTimer) clearTimeout(animationTimer);
+    audioManager.shutdown();
     showCursor();
     cleanup();
     process.exit(0);
   });
   process.on("SIGWINCH", () => {
     renderState(state);
+    syncAudioForState(state);
     scheduleAnimationTick();
   });
 }

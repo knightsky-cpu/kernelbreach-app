@@ -2393,6 +2393,11 @@ var audioDebugEnabled = process.env.KERNELBREACH_AUDIO_DEBUG === "1";
 var engineDebugEnabled = process.env.KERNELBREACH_VERBOSE_DEBUG === "1";
 var DEBUG_LOG_LIMIT = 160;
 var debugLogBuffer = [];
+function getBundledFfplayPath() {
+  if (process.platform !== "win32") return null;
+  const bundledPath = path.join(path.dirname(process.execPath), "ffplay.exe");
+  return fs.existsSync(bundledPath) ? bundledPath : null;
+}
 function appendDebugLog(channel, message) {
   debugLogBuffer.push({ channel, message, at: new Date().toLocaleTimeString() });
   if (debugLogBuffer.length > DEBUG_LOG_LIMIT) {
@@ -2436,6 +2441,7 @@ function commandExists(command, args = ["--help"]) {
 }
 function detectPlayerBackend() {
   if (playerBackend !== null) return playerBackend;
+  const bundledFfplayPath = getBundledFfplayPath();
   const candidates = process.platform === "darwin" ? [
     {
       name: "afplay",
@@ -2444,6 +2450,12 @@ function detectPlayerBackend() {
       args: (trackPath) => [trackPath]
     }
   ] : process.platform === "win32" ? [
+    ...bundledFfplayPath ? [{
+      name: "bundled-ffplay",
+      command: bundledFfplayPath,
+      probeArgs: ["-version"],
+      args: (trackPath) => ["-nodisp", "-autoexit", "-loglevel", "quiet", trackPath]
+    }] : [],
     {
       name: "ffplay",
       command: "ffplay",

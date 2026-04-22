@@ -2216,7 +2216,7 @@ function isPartyWiped(party) {
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { Readable } from "stream";
+import { spawn, spawnSync } from "child_process";
 import { fileURLToPath } from "url";
 var MAX_SAVE_SLOTS = 3;
 function getSaveDir() {
@@ -2329,49 +2329,6 @@ function getAudioTrackPath(trackId) {
   if (!track) return null;
   return path.join(getAudioDir(), track.file);
 }
-function parseWavBuffer(buffer) {
-  if (buffer.length < 44) {
-    throw new Error("WAV file too small.");
-  }
-  if (buffer.toString("ascii", 0, 4) !== "RIFF" || buffer.toString("ascii", 8, 12) !== "WAVE") {
-    throw new Error("Unsupported WAV container.");
-  }
-  let offset = 12;
-  let fmt = null;
-  let data = null;
-  while (offset + 8 <= buffer.length) {
-    const chunkId = buffer.toString("ascii", offset, offset + 4);
-    const chunkSize = buffer.readUInt32LE(offset + 4);
-    const chunkStart = offset + 8;
-    const chunkEnd = chunkStart + chunkSize;
-    if (chunkEnd > buffer.length) break;
-    if (chunkId === "fmt ") {
-      fmt = {
-        audioFormat: buffer.readUInt16LE(chunkStart),
-        channels: buffer.readUInt16LE(chunkStart + 2),
-        sampleRate: buffer.readUInt32LE(chunkStart + 4),
-        bitDepth: buffer.readUInt16LE(chunkStart + 14)
-      };
-    } else if (chunkId === "data") {
-      data = buffer.subarray(chunkStart, chunkEnd);
-    }
-    offset = chunkEnd + chunkSize % 2;
-  }
-  if (!fmt || !data) {
-    throw new Error("WAV file is missing required chunks.");
-  }
-  if (fmt.audioFormat !== 1 && fmt.audioFormat !== 3) {
-    throw new Error(`Unsupported WAV format ${fmt.audioFormat}.`);
-  }
-  return {
-    channels: fmt.channels,
-    sampleRate: fmt.sampleRate,
-    bitDepth: fmt.bitDepth,
-    float: fmt.audioFormat === 3,
-    signed: fmt.audioFormat !== 3,
-    pcmData: data
-  };
-}
 var AUDIO_RUNTIME_ENABLED = process.env.KERNELBREACH_ENABLE_AUDIO !== "0";
 var audioDebugEnabled = process.env.KERNELBREACH_AUDIO_DEBUG === "1";
 var engineDebugEnabled = process.env.KERNELBREACH_VERBOSE_DEBUG === "1";
@@ -2409,318 +2366,163 @@ function setAudioDebugEnabled(enabled) {
   audioDebugEnabled = enabled;
   audioDebug(`audio debug ${enabled ? "enabled" : "disabled"}`);
 }
-var speakerConstructorPromise = null;
-function loadSpeakerConstructor() {
-  if (!speakerConstructorPromise) {
-    audioDebug("loading speaker module");
-    speakerConstructorPromise = import("speaker").then((mod) => {
-      audioDebug("speaker module loaded");
-      return mod.default ?? mod;
-    }).catch((error) => {
-      audioDebug(`failed to load speaker module: ${error?.message ?? error}`);
-      return null;
-    });
+var playerBackend = null;
+function commandExists(command, args = ["--help"]) {
+  try {
+    const result = spawnSync(command, args, { stdio: "ignore" });
+    return !result.error || result.error.code !== "ENOENT";
+  } catch {
+    return false;
   }
-  return speakerConstructorPromise;
 }
-var LoopingPcmStream = class extends Readable {
-  constructor(pcmData, loop, options = {}) {
-    super({ highWaterMark: options.highWaterMark ?? 8192 });
-    this.pcmData = pcmData;
-    this.loop = loop;
-    this.offset = 0;
-    this.chunkSize = options.chunkSize ?? 2048;
-    this.stopped = false;
-    this.muted = options.muted ?? false;
-    this.frameBytes = Math.max(1, options.frameBytes ?? 1);
-  }
-  setMuted(muted) {
-    this.muted = muted;
-  }
-  setTrack(pcmData, loop) {
-    this.pcmData = pcmData;
-    this.loop = loop;
-    this.offset = 0;
-    this.stopped = false;
-    this.read(0);
-  }
-  _read(size) {
-    if (this.stopped) {
-      this.push(null);
-      return;
+function detectPlayerBackend() {
+  if (playerBackend !== null) return playerBackend;
+  const candidates = process.platform === "darwin" ? [
+    {
+      name: "afplay",
+      command: "afplay",
+      probeArgs: ["-h"],
+      args: (trackPath) => [trackPath]
     }
-    const requested = Math.max(this.chunkSize, size || 0);
-    const safeSize = Math.max(this.frameBytes, requested - requested % this.frameBytes);
-    if (this.muted) {
-      this.push(Buffer.alloc(safeSize));
-      return;
+  ] : process.platform === "linux" ? [
+    {
+      name: "ffplay",
+      command: "ffplay",
+      probeArgs: ["-version"],
+      args: (trackPath) => ["-nodisp", "-autoexit", "-loglevel", "quiet", trackPath]
+    },
+    {
+      name: "aplay",
+      command: "aplay",
+      probeArgs: ["--version"],
+      args: (trackPath) => [trackPath]
+    },
+    {
+      name: "paplay",
+      command: "paplay",
+      probeArgs: ["--version"],
+      args: (trackPath) => [trackPath]
     }
-    while (!this.stopped) {
-      if (this.offset >= this.pcmData.length) {
-        if (!this.loop) {
-          this.push(null);
-          this.stopped = true;
-          return;
-        }
-        this.offset = 0;
-        if (this.pcmData.length === 0) {
-          this.push(null);
-          this.stopped = true;
-          return;
-        }
-      }
-      const end = Math.min(this.pcmData.length, this.offset + safeSize);
-      const chunk = this.pcmData.subarray(this.offset, end);
-      this.offset = end;
-      if (!this.push(chunk)) {
-        return;
-      }
-      if (chunk.length >= safeSize) {
-        return;
-      }
+  ] : [];
+  for (const candidate of candidates) {
+    if (commandExists(candidate.command, candidate.probeArgs)) {
+      playerBackend = candidate;
+      audioDebug(`selected audio backend ${candidate.name}`);
+      return playerBackend;
     }
   }
-  _destroy(error, callback) {
-    this.stopped = true;
-    callback(error);
-  }
-};
+  playerBackend = false;
+  audioDebug(`no supported audio backend found for platform ${process.platform}; using no-op`);
+  return playerBackend;
+}
 function createAudioManager() {
   let muted = false;
   let currentTrackId = null;
-  let currentSource = null;
-  let currentSpeaker = null;
+  let currentProcess = null;
   let playbackSerial = 0;
-  const trackCache = /* @__PURE__ */ new Map();
-  const silenceCache = /* @__PURE__ */ new Map();
-  let currentFormatKey = null;
-  function getFormatKey(wav) {
-    return [wav.sampleRate, wav.channels, wav.bitDepth, wav.float ? "f" : "i", wav.signed ? "s" : "u"].join(":");
-  }
-  function loadTrackData(trackId) {
-    if (trackCache.has(trackId)) return trackCache.get(trackId);
-    const track = AUDIO_TRACKS[trackId];
-    if (!track) return null;
-    const trackPath = getAudioTrackPath(trackId);
-    audioDebug(`startTrack requested id=${trackId} path=${trackPath}`);
-    if (!trackPath || !fs.existsSync(trackPath)) {
-      audioDebug(`track file missing for ${trackId}`);
-      return null;
-    }
-    try {
-      const wav = parseWavBuffer(fs.readFileSync(trackPath));
-      const loaded = { ...wav, formatKey: getFormatKey(wav) };
-      trackCache.set(trackId, loaded);
-      audioDebug(`parsed wav for ${trackId}: ${wav.sampleRate}Hz ${wav.channels}ch ${wav.bitDepth}bit bytes=${wav.pcmData.length}`);
-      return loaded;
-    } catch {
-      audioDebug(`failed to parse wav for ${trackId}`);
-      return null;
-    }
-  }
-  function getSilenceTrackData(formatKey = currentFormatKey) {
-    if (!formatKey) return null;
-    if (silenceCache.has(formatKey)) return silenceCache.get(formatKey);
-    const [sampleRateRaw, channelsRaw, bitDepthRaw, floatFlag, signedFlag] = formatKey.split(":");
-    const sampleRate = Number(sampleRateRaw);
-    const channels = Number(channelsRaw);
-    const bitDepth = Number(bitDepthRaw);
-    const frameBytes = channels * Math.max(1, bitDepth / 8);
-    const pcmData = Buffer.alloc(frameBytes * 2048);
-    const silence = {
-      sampleRate,
-      channels,
-      bitDepth,
-      float: floatFlag === "f",
-      signed: signedFlag === "s",
-      pcmData,
-      formatKey
-    };
-    silenceCache.set(formatKey, silence);
-    return silence;
-  }
-  function teardown() {
+  function stopPlayback(reason = "stop requested") {
     playbackSerial++;
-    audioDebug(`teardown playback serial=${playbackSerial}`);
-    const source = currentSource;
-    const speaker = currentSpeaker;
-    currentSource = null;
-    currentSpeaker = null;
-    currentFormatKey = null;
-    if (source) {
+    audioDebug(`${reason}; playback serial=${playbackSerial}`);
+    const proc = currentProcess;
+    currentProcess = null;
+    if (proc) {
       try {
-        source.unpipe?.();
+        proc.removeAllListeners();
       } catch {
       }
       try {
-        source.destroy?.();
+        proc.kill("SIGTERM");
       } catch {
       }
     }
-    if (speaker) {
-      try {
-        speaker.end?.();
-      } catch {
-      }
-      try {
-        speaker.destroy?.();
-      } catch {
-      }
-    }
-  }
-  function ensurePlayback(trackId, trackData) {
-    const track = AUDIO_TRACKS[trackId];
-    if (!track || !trackData) return;
-    if (currentSource && currentSpeaker && currentFormatKey === trackData.formatKey) {
-      currentSource.setTrack(trackData.pcmData, track.loop);
-      currentSource.setMuted(muted);
-      currentTrackId = trackId;
-      audioDebug(`swapped active track to ${trackId} without recreating speaker`);
-      return;
-    }
-    teardown();
-    currentTrackId = trackId;
-    const serial = playbackSerial;
-    loadSpeakerConstructor().then((SpeakerCtor) => {
-      if (!SpeakerCtor || playbackSerial !== serial || currentTrackId !== trackId) {
-        audioDebug(`speaker start aborted for ${trackId}: ctor=${!!SpeakerCtor} serial_ok=${playbackSerial === serial} muted=${muted} current=${currentTrackId}`);
-        return;
-      }
-      const frameBytes = trackData.channels * Math.max(1, trackData.bitDepth / 8);
-      const source = new LoopingPcmStream(trackData.pcmData, track.loop, { muted, frameBytes });
-      const speaker = new SpeakerCtor({
-        channels: trackData.channels,
-        sampleRate: trackData.sampleRate,
-        bitDepth: trackData.bitDepth,
-        float: trackData.float,
-        signed: trackData.signed,
-        samplesPerFrame: 256
-      });
-      audioDebug(`speaker created for ${trackId}`);
-      let settled = false;
-      const finishPlayback = () => {
-        if (settled) return;
-        settled = true;
-        if (playbackSerial !== serial) return;
-        currentSource = null;
-        currentSpeaker = null;
-        currentFormatKey = null;
-        audioDebug(`playback finished for ${trackId}`);
-      };
-      const failPlayback = () => {
-        if (settled) return;
-        settled = true;
-        if (playbackSerial !== serial) return;
-        currentSource = null;
-        currentSpeaker = null;
-        currentFormatKey = null;
-        audioDebug(`playback failed for ${trackId}`);
-      };
-      currentSource = source;
-      currentSpeaker = speaker;
-      currentFormatKey = trackData.formatKey;
-      source.once("error", (error) => {
-        audioDebug(`source error for ${trackId}: ${error?.message ?? error}`);
-        failPlayback();
-      });
-      source.once("end", finishPlayback);
-      speaker.once("close", finishPlayback);
-      speaker.once("finish", finishPlayback);
-      speaker.once("open", () => {
-        audioDebug(`speaker open for ${trackId}`);
-      });
-      speaker.once("flush", () => {
-        audioDebug(`speaker flush for ${trackId}`);
-      });
-      speaker.once("error", (error) => {
-        audioDebug(`speaker error for ${trackId}: ${error?.message ?? error}`);
-        failPlayback();
-      });
-      audioDebug(`piping pcm to speaker for ${trackId}`);
-      source.pipe(speaker);
-    }).catch(() => {
-      audioDebug(`unexpected rejection while starting ${trackId}`);
-    });
-  }
-  function switchToSilence(reason) {
-    const silenceTrack = getSilenceTrackData();
-    if (currentSource && currentSpeaker && silenceTrack) {
-      currentSource.setTrack(silenceTrack.pcmData, true);
-      currentSource.setMuted(false);
-      currentTrackId = null;
-      audioDebug(`swapped active track to silence (${reason})`);
-      return true;
-    }
-    audioDebug(`no active speaker available for silence swap (${reason})`);
-    return false;
   }
   function startTrack(trackId) {
     const track = AUDIO_TRACKS[trackId];
+    const backend = detectPlayerBackend();
     if (!track) {
       audioDebug("no track definition found; stopping playback");
-      teardown();
+      stopPlayback("no track definition found");
       currentTrackId = null;
       return;
     }
     if (!AUDIO_RUNTIME_ENABLED) {
       audioDebug(`audio runtime disabled; skipping track ${trackId}`);
-      switchToSilence("runtime disabled") || teardown();
+      stopPlayback("runtime disabled");
       currentTrackId = null;
       return;
     }
-    const trackData = loadTrackData(trackId);
-    if (!trackData) {
-      switchToSilence(`missing track ${trackId}`) || teardown();
+    const trackPath = getAudioTrackPath(trackId);
+    audioDebug(`startTrack requested id=${trackId} path=${trackPath}`);
+    if (!trackPath || !fs.existsSync(trackPath)) {
+      audioDebug(`track file missing for ${trackId}`);
+      stopPlayback(`missing track ${trackId}`);
       currentTrackId = null;
       return;
     }
-    ensurePlayback(trackId, trackData);
+    if (!backend) {
+      audioDebug(`no backend available; no-op for ${trackId}`);
+      stopPlayback(`no backend for ${trackId}`);
+      currentTrackId = null;
+      return;
+    }
+    stopPlayback(`switching to ${trackId}`);
+    currentTrackId = trackId;
+    const serial = playbackSerial;
+    const child = spawn(backend.command, backend.args(trackPath), {
+      stdio: ["ignore", "ignore", "ignore"]
+    });
+    currentProcess = child;
+    audioDebug(`spawned ${backend.name} for ${trackId}`);
+    child.once("spawn", () => {
+      audioDebug(`backend ${backend.name} started for ${trackId}`);
+    });
+    child.once("error", (error) => {
+      if (playbackSerial !== serial || currentTrackId !== trackId) return;
+      currentProcess = null;
+      audioDebug(`backend ${backend.name} error for ${trackId}: ${error?.message ?? error}`);
+    });
+    child.once("exit", (code, signal) => {
+      if (playbackSerial !== serial) return;
+      currentProcess = null;
+      audioDebug(`backend ${backend.name} exited for ${trackId} code=${code ?? "null"} signal=${signal ?? "null"}`);
+      if (!muted && currentTrackId === trackId && track.loop) {
+        startTrack(trackId);
+      }
+    });
   }
   return {
     sync(trackId, nextMuted) {
       muted = nextMuted;
       audioDebug(`sync track=${trackId ?? "none"} muted=${muted} runtime=${AUDIO_RUNTIME_ENABLED}`);
-      if (currentSource && typeof currentSource.setMuted === "function") {
-        currentSource.setMuted(muted);
-      }
       if (!AUDIO_RUNTIME_ENABLED || !trackId) {
-        switchToSilence(!AUDIO_RUNTIME_ENABLED ? "runtime disabled" : "no track") || teardown();
+        stopPlayback(!AUDIO_RUNTIME_ENABLED ? "runtime disabled" : "no track");
         currentTrackId = null;
         return;
       }
-      if (trackId === currentTrackId) return;
+      if (muted) {
+        currentTrackId = trackId;
+        stopPlayback("muted");
+        return;
+      }
+      if (trackId === currentTrackId && currentProcess) return;
       audioDebug(`switching track from ${currentTrackId ?? "none"} to ${trackId}`);
       startTrack(trackId);
     },
     async prime(trackIds = []) {
       if (!AUDIO_RUNTIME_ENABLED) return;
-      const ids = Array.from(new Set(trackIds.filter(Boolean)));
-      const primedTracks = ids.map((trackId) => loadTrackData(trackId)).filter(Boolean);
-      const firstTrack = primedTracks[0];
-      const SpeakerCtor = await loadSpeakerConstructor();
-      if (!SpeakerCtor || !firstTrack || currentSpeaker) return;
-      audioDebug(`prewarming speaker with ${ids[0]}`);
-      const frameBytes = firstTrack.channels * Math.max(1, firstTrack.bitDepth / 8);
-      const source = new LoopingPcmStream(firstTrack.pcmData, true, { muted: true, frameBytes });
-      const speaker = new SpeakerCtor({
-        channels: firstTrack.channels,
-        sampleRate: firstTrack.sampleRate,
-        bitDepth: firstTrack.bitDepth,
-        float: firstTrack.float,
-        signed: firstTrack.signed,
-        samplesPerFrame: 256
-      });
-      currentSource = source;
-      currentSpeaker = speaker;
-      currentFormatKey = firstTrack.formatKey;
-      currentTrackId = ids[0];
-      source.pipe(speaker);
+      detectPlayerBackend();
+      for (const trackId of Array.from(new Set(trackIds.filter(Boolean)))) {
+        const trackPath = getAudioTrackPath(trackId);
+        if (trackPath && fs.existsSync(trackPath)) {
+          audioDebug(`primed track path ${trackId} -> ${trackPath}`);
+        }
+      }
     },
     shutdown() {
       muted = true;
       currentTrackId = null;
       audioDebug("audio manager shutdown");
-      teardown();
+      stopPlayback("shutdown");
     }
   };
 }

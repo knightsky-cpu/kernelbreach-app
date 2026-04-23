@@ -95,7 +95,7 @@ var ZONE_CONFIGS = {
     name: "central",
     displayName: "Kernel Hub",
     wildSpecies: ["Data-Duck", "Bit-Blob", "Sync-Hare"],
-    bossSpecies: "Chonk-Kernel",
+    bossSpecies: "Da-Kernel",
     dungeonName: "Root Directory",
     dungeonPos: { x: 19, y: 22 },
     healPos: { x: 18, y: 7 },
@@ -288,7 +288,7 @@ var BOSS_SEQUENCE = [
   { species: "Bot-Node", bossName: "Abyssal Kernel", zone: "west", zoneName: "Logic Trench", breachSite: "Deep Buffer", log: "Logic Trench reclaimed. Intercepted packets return to their true path." },
   { species: "Ransom-Ware", bossName: "Ransom-Ware", zone: "sandbox", zoneName: "Isolated Sandbox", breachSite: "Quarantine Vault", log: "Isolated Sandbox purified. Quarantined horrors can no longer spread." },
   { species: "Eskalate", bossName: "Eskalate", zone: "home", zoneName: "Home Directory", breachSite: "User-Space", log: "Home Directory restored. Identity and access paths stand whole again." },
-  { species: "Chonk-Kernel", bossName: "Root Admin Chonk", zone: "central", zoneName: "Kernel Hub", breachSite: "Root Directory", log: "Root Directory reclaimed. The buried source recognizes its keeper." }
+  { species: "Da-Kernel", bossName: "Root Admin", zone: "central", zoneName: "Kernel Hub", breachSite: "Root Directory", log: "Root Directory reclaimed. The buried source recognizes its keeper." }
 ];
 BOSS_SEQUENCE.splice(BOSS_SEQUENCE.length - 1, 0, { species: "Init-Reaper", bossName: "Init-Reaper", zone: "proc", zoneName: "Process Table", breachSite: "Scheduler Core", log: "Process Table restored. Orphaned executions fall silent beneath reclaimed control." }, { species: "Shred-Null", bossName: "Shred-Null", zone: "tmp", zoneName: "Temp Directory", breachSite: "Ephemeral Cache", log: "Temp Directory purged. Disposable corruption loses its hiding place in the volatile layers." }, { species: "Kernel-Driver", bossName: "Kernel-Driver", zone: "dev", zoneName: "Device Nodes", breachSite: "Driver Channel", log: "Device Nodes secured. Hardware channels answer the kernel with clean signal once more." });
 var FINAL_KEY_BOSSES = BOSS_SEQUENCE.slice(-8);
@@ -1098,7 +1098,7 @@ var SPECIES_NAMES = {
   "Data-Duck": "Data-Duck",
   "Bit-Blob": "Bit-Blob",
   "Sync-Hare": "Sync-Hare",
-  "Chonk-Kernel": "Chonk-Kernel",
+  "Da-Kernel": "Da-Kernel",
   "Ice-Pack": "Ice-Pack",
   "Shell-Snail": "Shell-Snail",
   "Phantom-Thread": "Phantom-Thread",
@@ -1183,7 +1183,7 @@ function getSpeciesSkills(species) {
     "Init-Reaper": ["Byte", "Process Reap", "Exploit"],
     "Shred-Null": ["Byte", "Secure Delete", "Prompt Injection"],
     "Kernel-Driver": ["Byte", "Bus Fault", "Privilege Escalation"],
-    "Chonk-Kernel": ["Byte", "Kernel Panic", "Sudo Swipe"],
+    "Da-Kernel": ["Byte", "Kernel Panic", "Sudo Swipe"],
     "Sudo -S": ["Byte", "Kernel Panic", "Privilege Escalation"]
   };
   return bossSkills[species] ?? common;
@@ -1342,7 +1342,7 @@ function getKeyPieceEntries(player) {
 function normalizeFinalRewardCreature(creature) {
   if (!creature) return creature;
   if (creature.species === "Sudo -S") return creature;
-  if (creature.nickname !== "Chonk-Kernel Prime") return creature;
+  if (creature.nickname !== "Ring 0") return creature;
   return {
     ...creature,
     species: "Sudo -S",
@@ -1426,7 +1426,7 @@ function applyBossProgress(player, bossSpecies) {
 }
 function getBossName(species) {
   const names = {
-    "Chonk-Kernel": "Root Admin Chonk",
+    "Da-Kernel": "Root Admin",
     "Wifi-Owl": "Cryo-Compiler",
     "Firewall-Drake": "GPU-Inferno",
     "Honk-Process": "Legacy Protocol",
@@ -2713,7 +2713,7 @@ var BODIES = {
     ["            ", " .-O-oo-O-. ", "(__________)", "   |{E}  {E}|   ", "   |____|   "],
     ["   . o  .   ", " .-o-OO-o-. ", "(__________)", "   |{E}  {E}|   ", "   |____|   "]
   ],
-  "Chonk-Kernel": [
+  "Da-Kernel": [
     ["            ", "  /\\    /\\  ", " ( {E}    {E} ) ", " (   ..   ) ", "  `------\xB4  "],
     ["            ", "  /\\    /|  ", " ( {E}    {E} ) ", " (   ..   ) ", "  `------\xB4  "],
     ["            ", "  /\\    /\\  ", " ( {E}    {E} ) ", " (   ..   ) ", "  `------\xB4~ "]
@@ -2804,7 +2804,7 @@ function renderSprite(species, eye, hat, frame = 0) {
   if (!lines[0].trim() && frames.every((f) => !f[0].trim())) lines.shift();
   return lines;
 }
-BODIES["Sudo -S"] = BODIES["Chonk-Kernel"];
+BODIES["Sudo -S"] = BODIES["Da-Kernel"];
 BODIES["Fork-Bomb"] = [
   ["            ", "   .----.   ", "  ( {E}  {E} )  ", "  | /\\/\\ |  ", "   `-!!-'   "],
   ["            ", "   .----.   ", "  ( {E}  {E} )  ", "  | \\/\\/ |  ", "   `-!!-'   "],

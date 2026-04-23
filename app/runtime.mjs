@@ -68,7 +68,9 @@ var KEY = {
   DEV_TOGGLE: "["
 };
 function isDevMenuEnabled() {
-  return !process.pkg || process.env.KERNELBREACH_ENABLE_DEV_MENU === "1";
+  if (process.env.KERNELBREACH_ENABLE_DEV_MENU === "1") return true;
+  if (process.env.KERNELBREACH_ENABLE_DEV_MENU === "0") return false;
+  return !process.pkg;
 }
 function isUp(key) {
   return key === KEY.UP || key === KEY.w || key === KEY.W;

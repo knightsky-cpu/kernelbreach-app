@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain } from "electron";
+import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import {
@@ -14,6 +15,24 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 let mainWindow = null;
+
+function getRuntimePackageJson() {
+  const packageJsonPath = path.join(__dirname, "../../package.json");
+  try {
+    return JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function shouldEnableDevMenu() {
+  const explicit = process.env.KERNELBREACH_ENABLE_DEV_MENU;
+  if (explicit === "1") return true;
+  if (explicit === "0") return false;
+  if (!app.isPackaged) return true;
+  const packageJson = getRuntimePackageJson();
+  return packageJson?.kernelBreach?.devMenuEnabled === true;
+}
 
 function getWindowIconPath() {
   return app.isPackaged
@@ -54,6 +73,7 @@ function estimateGridSize(window) {
 
 app.whenReady().then(async () => {
   createWindow();
+  process.env.KERNELBREACH_ENABLE_DEV_MENU = shouldEnableDevMenu() ? "1" : "0";
   setEmbeddedQuitHandler(() => {
     stopRuntime();
     app.quit();

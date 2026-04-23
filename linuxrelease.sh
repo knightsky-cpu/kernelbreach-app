@@ -85,13 +85,6 @@ package_share_zip() {
   create_share_zip "$ZIP_ASSET_NAME" "$artifact_path" "$output_dir"
 }
 
-build_local_variant() {
-  npm exec electron-builder -- \
-    --linux dir \
-    --x64 \
-    -c.extraMetadata.kernelBreach.devMenuEnabled=true
-}
-
 build_public_variant() {
   local output_dir="$1"
 
@@ -133,7 +126,6 @@ upload_assets() {
 
 check_prereqs
 clean_release
-build_local_variant
 
 PUBLIC_STAGE_DIR="$(mktemp -d /tmp/kernelbreach-linux-release.XXXXXX)"
 trap 'rm -rf "$PUBLIC_STAGE_DIR"' EXIT
@@ -142,6 +134,7 @@ PUBLIC_ZIP_ASSET="${PUBLIC_STAGE_DIR}/${ZIP_ASSET_NAME}"
 
 build_public_variant "$PUBLIC_STAGE_DIR"
 package_share_zip "$PUBLIC_DEB_ARTIFACT" "$PUBLIC_STAGE_DIR"
+cp "$PUBLIC_ZIP_ASSET" "app-release/$ZIP_ASSET_NAME"
 ensure_release
 upload_assets "$PUBLIC_ZIP_ASSET"
 

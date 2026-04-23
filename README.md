@@ -1,45 +1,75 @@
 # Kernel Breach
 
-Kernel Breach can be installed two ways.
+Kernel Breach is a desktop app build of the game using Electron. This repo is for the standalone application version, not the older terminal-only release flow.
 
-If you want the script-based setup, use `setup.sh`. This is the preferred method for running the game from source on macOS or Linux. The script checks for Node.js 18 or newer, installs it if needed, creates a local launcher, and sets up a `kernelbreach` command you can run from your terminal.
+## Requirements
 
-If you do not want to run the source version, you can use one of the prebuilt zip releases instead. These are packaged builds for supported platforms and can be downloaded directly from the repository releases or from the `release` folder when included in the repo.
+- Node.js 18 or newer
+- npm
+- macOS for macOS builds
+- Linux x64 for Linux `.deb` builds
 
-## Source Setup
+Windows packages can be produced from this repo with Electron Builder, but Linux `.deb` packages should be built on Linux.
 
-Run the setup script from the project directory:
+## Run The App From Source
 
-```bash
-bash setup.sh
-```
-
-After the script finishes, you can start the game with:
-
-```bash
-kernelbreach
-```
-
-If you are still in the project directory, you can also run:
+From the project root:
 
 ```bash
-./play.sh
+npm install
+npm run start:app
 ```
 
-This setup method is intended for macOS and Linux.
+## Build Packages
 
-## Prebuilt Zip Files
+Use the build wrapper from the project root:
 
-If you want a packaged build instead of the source setup, use the zip file that matches your system.
+```bash
+./build.sh
+```
 
-Current zip builds:
+That builds the app packages supported by the current machine and creates final share zips in `app-release/`.
 
-`release/kernelbreach-macos-arm64.zip`
-`release/kernelbreach-macos-x64.zip`
-`release/kernelbreach-linux-x64.zip`
-`release/kernelbreach-win-x64.zip`
+Supported targets:
 
-Download the correct zip for your platform, extract it, and run the included binary from the extracted folder.
+```bash
+./build.sh all
+./build.sh mac
+./build.sh mac-arm64
+./build.sh mac-x64
+./build.sh win
+./build.sh linux
+./build.sh clean
+```
+
+## Platform Notes
+
+- macOS builds are produced on macOS.
+- Windows x64 builds are produced with Electron Builder from this repo.
+- Linux `.deb` builds should be produced on a Linux x64 machine.
+
+The Linux package is intended to be installed with:
+
+```bash
+sudo dpkg -i kernelbreach_1.0.0_amd64.deb
+```
+
+## Build Output
+
+Final distributable share zips are written to `app-release/`:
+
+- `kernelbreach-macos-arm64.zip`
+- `kernelbreach-macos-x64.zip`
+- `kernelbreach-win-x64.zip`
+- `kernelbreach-linux-x64.zip`
+
+The macOS arm64 unpacked app bundle is also preserved in:
+
+- `app-release/mac-arm64/Kernel Breach.app`
+
+## Repo Notes
+
+This repo contains the Electron app source, assets, icons, packaging config, and build script. Generated dependency folders and packaged build output should not be committed.
 
 ## License
 

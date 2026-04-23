@@ -1,0 +1,6 @@
+Legacy Partition // sudo credential note
+
+user: any authorized operator login
+password: Terminal#quest4
+
+If authentication fails, check the root directory.

@@ -1,0 +1,7 @@
+node_modules/
+app-release/
+.icon-venv/
+.DS_Store
+saved_games/
+dist/
+setup.sh

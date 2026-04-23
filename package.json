@@ -1,0 +1,88 @@
+{
+  "name": "kernelbreach",
+  "productName": "Kernel Breach",
+  "version": "1.0.0",
+  "description": "A retro cyber-fantasy terminal RPG about reclaiming a breached kernel.",
+  "homepage": "https://kernelbreach.app",
+  "type": "module",
+  "main": "app/electron/main.mjs",
+  "author": {
+    "name": "wifiknight",
+    "email": "wifiknight@proton.me"
+  },
+  "scripts": {
+    "start": "electron app/electron/main.mjs",
+    "start:app": "electron app/electron/main.mjs",
+    "pack:app": "electron-builder --dir",
+    "dist:app": "electron-builder",
+    "dist:app:mac": "electron-builder --mac dmg zip --arm64",
+    "dist:app:mac:arm64": "electron-builder --mac dmg zip --arm64",
+    "dist:app:mac:x64": "electron-builder --mac dmg zip --x64",
+    "dist:app:mac:universal": "electron-builder --mac dmg zip --universal",
+    "dist:app:win": "electron-builder --win portable nsis --x64",
+    "dist:app:win:x64": "electron-builder --win portable nsis --x64",
+    "dist:app:linux": "electron-builder --linux deb --x64",
+    "dist:app:linux:x64": "electron-builder --linux deb --x64"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "electron": "^41.3.0",
+    "electron-builder": "^26.8.1"
+  },
+  "build": {
+    "appId": "com.kernelbreach.appdev",
+    "productName": "Kernel Breach",
+    "directories": {
+      "output": "app-release"
+    },
+    "files": [
+      "app/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "tools/windows/ffplay.exe",
+        "to": "ffplay.exe"
+      },
+      {
+        "from": "build/icon-1024.png",
+        "to": "icon.png"
+      }
+    ],
+    "asarUnpack": [
+      "assets/audio/**/*"
+    ],
+    "mac": {
+      "icon": "build/icon.icns",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.games"
+    },
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        "portable",
+        "nsis"
+      ]
+    },
+    "linux": {
+      "icon": "build/icons",
+      "maintainer": "wifiknight <wifiknight@proton.me>",
+      "desktop": {
+        "entry": {
+          "StartupWMClass": "kernelbreach"
+        }
+      },
+      "target": [
+        "deb"
+      ],
+      "category": "Game"
+    }
+  }
+}

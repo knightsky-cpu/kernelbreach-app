@@ -1,0 +1,87 @@
+:root {
+  --bg: #070c11;
+  --panel: #0f161d;
+  --text: #d9e2ea;
+  --chrome: #1f2a33;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background:
+    radial-gradient(circle at top, rgba(34, 130, 123, 0.18), transparent 28%),
+    linear-gradient(180deg, #0a1218 0%, #070c11 100%);
+  color: var(--text);
+}
+
+body {
+  font-family: "SF Mono", "Fira Code", "Cascadia Mono", monospace;
+  overflow: hidden;
+}
+
+.app-shell {
+  box-sizing: border-box;
+  width: 100vw;
+  height: 100vh;
+  padding: 16px;
+}
+
+.frame-wrap {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--chrome);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 18%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.22), transparent 22%),
+    var(--panel);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  overflow: auto;
+  scrollbar-gutter: stable both-edges;
+}
+
+#screen {
+  margin: 0;
+  padding: 18px 20px 24px;
+  min-height: 100%;
+  box-sizing: border-box;
+  display: block;
+  font-size: 16px;
+  line-height: 1.22;
+  white-space: pre;
+  font-variant-ligatures: none;
+  letter-spacing: 0;
+}
+
+.ansi-bold { font-weight: 700; }
+.ansi-dim { opacity: 0.72; }
+.ansi-blink { text-decoration: underline; }
+.ansi-fg-30 { color: #101316; }
+.ansi-fg-31 { color: #e15e5e; }
+.ansi-fg-32 { color: #57d78d; }
+.ansi-fg-33 { color: #e7c760; }
+.ansi-fg-34 { color: #6da5ff; }
+.ansi-fg-35 { color: #df84ff; }
+.ansi-fg-36 { color: #62d2da; }
+.ansi-fg-37 { color: #d7e2eb; }
+.ansi-fg-90 { color: #7f8a93; }
+.ansi-fg-91 { color: #ff7c7c; }
+.ansi-fg-92 { color: #8ff0ad; }
+.ansi-fg-93 { color: #ffe57f; }
+.ansi-fg-94 { color: #92b9ff; }
+.ansi-fg-95 { color: #f1a3ff; }
+.ansi-fg-96 { color: #8aeef2; }
+.ansi-fg-97 { color: #ffffff; }
+.ansi-bg-40 { background: #101316; }
+.ansi-bg-41 { background: #5a1616; }
+.ansi-bg-42 { background: #183d26; }
+.ansi-bg-43 { background: #554311; }
+.ansi-bg-44 { background: #172e52; }
+.ansi-bg-45 { background: #4a1b59; }
+.ansi-bg-46 { background: #11494f; }
+.ansi-bg-47 { background: #dbe6ef; color: #101316; }
+.ansi-bg-100 { background: #4a545c; }

@@ -1,0 +1,114 @@
+import { app, BrowserWindow, ipcMain } from "electron";
+import path from "path";
+import { fileURLToPath } from "url";
+import {
+  KEY,
+  resizeEmbeddedRuntime,
+  sendKeyToRuntime,
+  setEmbeddedQuitHandler,
+  startEmbeddedRuntime,
+  stopRuntime
+} from "../runtime.mjs";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+let mainWindow = null;
+
+function getWindowIconPath() {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, "icon.png")
+    : path.join(__dirname, "../../build/icon.png");
+}
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1440,
+    height: 960,
+    minWidth: 980,
+    minHeight: 720,
+    backgroundColor: "#070c11",
+    autoHideMenuBar: true,
+    icon: process.platform === "linux" ? getWindowIconPath() : undefined,
+    webPreferences: {
+      preload: path.join(__dirname, "preload.cjs"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false
+    }
+  });
+
+  mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
+  mainWindow.on("closed", () => {
+    mainWindow = null;
+  });
+}
+
+function estimateGridSize(window) {
+  const [width, height] = window.getContentSize();
+  return {
+    cols: Math.max(80, Math.floor((width - 32) / 12)),
+    rows: Math.max(24, Math.floor((height - 32) / 20))
+  };
+}
+
+app.whenReady().then(async () => {
+  createWindow();
+  setEmbeddedQuitHandler(() => {
+    stopRuntime();
+    app.quit();
+  });
+
+  const sendFrame = (lines) => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.webContents.send("game:frame", lines);
+  };
+
+  const initialSize = estimateGridSize(mainWindow);
+  await startEmbeddedRuntime({
+    onFrame: sendFrame,
+    cols: initialSize.cols,
+    rows: initialSize.rows
+  });
+
+  mainWindow.webContents.on("did-finish-load", () => {
+    const size = estimateGridSize(mainWindow);
+    resizeEmbeddedRuntime(size.cols, size.rows);
+  });
+
+  mainWindow.on("resize", () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    const size = estimateGridSize(mainWindow);
+    resizeEmbeddedRuntime(size.cols, size.rows);
+  });
+
+  app.on("activate", () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+    }
+  });
+});
+
+ipcMain.on("game:key", (_event, key) => {
+  if (typeof key !== "string") return;
+  sendKeyToRuntime(key);
+});
+
+ipcMain.on("game:resize", (_event, size) => {
+  if (!size || typeof size !== "object") return;
+  const cols = Number(size.cols);
+  const rows = Number(size.rows);
+  if (!Number.isFinite(cols) || !Number.isFinite(rows)) return;
+  resizeEmbeddedRuntime(Math.max(40, Math.floor(cols)), Math.max(20, Math.floor(rows)));
+});
+
+ipcMain.handle("game:keymap", () => KEY);
+
+app.on("before-quit", () => {
+  stopRuntime();
+});
+
+app.on("window-all-closed", () => {
+  stopRuntime();
+  app.quit();
+});

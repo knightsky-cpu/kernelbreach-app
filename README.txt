@@ -9,8 +9,9 @@ Armed with sudo permissions and exploits of your own, you enter the world of the
 Explore the infected sectors of the disk, purge the polymorphic corruption spreading through them, and reclaim the system before it is lost forever!
 
 How to run:
-- macOS/Linux: open Terminal, cd into the extracted folder, run the binary directly or use finder/file explorer and navigate to the extracted folder then double click the executable file.
-- Windows: open Command Prompt or PowerShell, cd into the extracted folder, run the .exe or use file explorer and navigate to the extracted folder then double click the exe file.
+- macOS: open the .dmg or release zip, move the app to Applications if desired, then launch Kernel Breach.app.
+- Windows: open the release zip, extract it, then run the included .exe or installer.
+- Linux: install the .deb package with sudo dpkg -i kernelbreach_1.0.0_amd64.deb, then launch Kernel Breach from the applications menu.
 
 Controls:
 - WASD or arrow keys: move
@@ -22,8 +23,6 @@ Controls:
 - CTRL+C: quit
 
 Notes:
-- This is a terminal game and should be run from a terminal window.
-- A wider terminal works best. 120 columns is recommended.
 - Save files are written to an OS-specific app data folder:
 - macOS: ~/Library/Application Support/KernelBreach/saved_games
 - Linux: ${XDG_DATA_HOME:-~/.local/share}/KernelBreach/saved_games

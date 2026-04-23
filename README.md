@@ -1,17 +1,23 @@
 # Kernel Breach
 
-Kernel Breach is a desktop app build of the game using Electron. This repo is for the standalone application version, not the older terminal-only release flow.
+Kernel Breach is released under the BSD 3-Clause License. See `LICENSE` for the full text.
 
-## Requirements
+Welcome to Kernel Breach, a hacker themed, Pokemon inspired, dungeon crawling creature capture RPG packed with security flavored mechanics, grindy progression, and just enough difficulty to be frustrating in the right way.
+
+Behind every corner are surprises, hostile viruses, and corrupted sectors waiting to be purged. You are the lead Security Architect, tasked with stopping a deadly polymorphic code that has breached the kernel and now threatens to wipe the entire system with `sudo rm -rf /`.
+
+Armed with sudo permissions and exploits of your own, you enter the world of the Terminal, where users meet machine and mysterious low-level operations unfold beneath the surface of the User Space. At first it may feel like magic, but the deeper you dive, the more systematic and scientific the journey becomes.
+
+Explore the infected sectors of the disk, purge the polymorphic corruption spreading through them, and reclaim the system before it is lost forever!
+
+## Setup
+
+Requirements:
 
 - Node.js 18 or newer
 - npm
 - macOS for macOS builds
 - Linux x64 for Linux `.deb` builds
-
-Windows packages can be produced from this repo with Electron Builder, but Linux `.deb` packages should be built on Linux.
-
-## Run The App From Source
 
 From the project root:
 
@@ -28,8 +34,6 @@ Use the build wrapper from the project root:
 ./build.sh
 ```
 
-That builds the app packages supported by the current machine and creates final share zips in `app-release/`.
-
 Supported targets:
 
 ```bash
@@ -42,11 +46,7 @@ Supported targets:
 ./build.sh clean
 ```
 
-## Platform Notes
-
-- macOS builds are produced on macOS.
-- Windows x64 builds are produced with Electron Builder from this repo.
-- Linux `.deb` builds should be produced on a Linux x64 machine.
+Windows packages can be produced from this repo with Electron Builder, but Linux `.deb` packages should be built on Linux.
 
 The Linux package is intended to be installed with:
 
@@ -54,23 +54,19 @@ The Linux package is intended to be installed with:
 sudo dpkg -i kernelbreach_1.0.0_amd64.deb
 ```
 
-## Build Output
+## Controls
 
-Final distributable share zips are written to `app-release/`:
+- WASD or arrow keys: move
+- E: interact / enter dungeon
+- M: menu
+- I: inventory
+- Enter or Space: confirm
+- X or Escape: back
+- CTRL+C: quit
 
-- `kernelbreach-macos-arm64.zip`
-- `kernelbreach-macos-x64.zip`
-- `kernelbreach-win-x64.zip`
-- `kernelbreach-linux-x64.zip`
+## Notes
 
-The macOS arm64 unpacked app bundle is also preserved in:
-
-- `app-release/mac-arm64/Kernel Breach.app`
-
-## Repo Notes
-
-This repo contains the Electron app source, assets, icons, packaging config, and build script. Generated dependency folders and packaged build output should not be committed.
-
-## License
-
-Kernel Breach is released under the BSD 3-Clause License. See `LICENSE` for the full text.
+- Save files are written to an OS-specific app data folder.
+- macOS: `~/Library/Application Support/KernelBreach/saved_games`
+- Linux: `${XDG_DATA_HOME:-~/.local/share}/KernelBreach/saved_games`
+- Windows: `%APPDATA%\KernelBreach\saved_games`

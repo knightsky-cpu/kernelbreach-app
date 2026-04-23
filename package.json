@@ -10,6 +10,9 @@
     "name": "wifiknight",
     "email": "wifiknight@proton.me"
   },
+  "kernelBreach": {
+    "devMenuEnabled": true
+  },
   "scripts": {
     "start": "electron app/electron/main.mjs",
     "start:app": "electron app/electron/main.mjs",

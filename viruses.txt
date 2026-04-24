@@ -1,0 +1,132 @@
+KERNEL BREACH VIRUS AND BOSS REFERENCE
+
+Current source of truth:
+- app/runtime.mjs
+- Zone/species mapping: ZONE_CONFIGS
+- Dungeon mapping: DUNGEON_CONFIGS
+
+ZONE: Kernel Hub
+OVERWORLD LOCATION: central
+DUNGEON: Root Directory
+Wild viruses:
+- Data-Duck
+- Bit-Blob
+- Sync-Hare
+Boss:
+- Da-Kernel
+
+ZONE: Cooling Array
+OVERWORLD LOCATION: north
+DUNGEON: Cryo-Stack
+Wild viruses:
+- Ice-Pack
+- Shell-Snail
+- Phantom-Thread
+Boss:
+- Wifi-Owl
+
+ZONE: Thermal Exhaust
+OVERWORLD LOCATION: south
+DUNGEON: Overclock Core
+Wild viruses:
+- Cache-Cat
+- Spike-Code
+- Macro-Shroom
+Boss:
+- Firewall-Drake
+
+ZONE: Legacy Archives
+OVERWORLD LOCATION: east
+DUNGEON: Bit-Rot Pit
+Wild viruses:
+- Shell-Turtle
+- Capy-Buffer
+- RAM-Spike
+Boss:
+- Honk-Process
+
+ZONE: The Deep Cache
+OVERWORLD LOCATION: cache
+DUNGEON: Defrag Chamber
+Wild viruses:
+- Bit-Stalker
+- Null-Void
+- Worm-Link
+Boss:
+- Spy-Ware
+
+ZONE: Logic Trench
+OVERWORLD LOCATION: west
+DUNGEON: Deep Buffer
+Wild viruses:
+- Socket-Octo
+- Packet-Eel
+- Port-Wyrm
+Boss:
+- Bot-Node
+
+ZONE: Isolated Sandbox
+OVERWORLD LOCATION: sandbox
+DUNGEON: Quarantine Vault
+Wild viruses:
+- Logic-Bomb
+- Key-Logger
+- Trojan-Horse
+Boss:
+- Ransom-Ware
+
+ZONE: Home Directory
+OVERWORLD LOCATION: home
+DUNGEON: User-Space
+Wild viruses:
+- Electrobyte
+- Killabit
+- Encryptobot
+- Hashpass
+Boss:
+- Eskalate
+
+ZONE: Process Table
+OVERWORLD LOCATION: proc
+DUNGEON: Scheduler Core
+Wild viruses:
+- Fork-Bomb
+- Zombie-Proc
+Boss:
+- Init-Reaper
+
+ZONE: Temp Directory
+OVERWORLD LOCATION: tmp
+DUNGEON: Ephemeral Cache
+Wild viruses:
+- Dropper-File
+- Wipe-Script
+Boss:
+- Shred-Null
+
+ZONE: Device Nodes
+OVERWORLD LOCATION: dev
+DUNGEON: Driver Channel
+Wild viruses:
+- Raw-Sector
+- IO-Leech
+Boss:
+- Kernel-Driver
+
+ALL BOSSES IN PROGRESSION ORDER
+- Wifi-Owl -> Cooling Array -> Cryo-Stack
+- Firewall-Drake -> Thermal Exhaust -> Overclock Core
+- Honk-Process -> Legacy Archives -> Bit-Rot Pit
+- Spy-Ware -> The Deep Cache -> Defrag Chamber
+- Bot-Node -> Logic Trench -> Deep Buffer
+- Ransom-Ware -> Isolated Sandbox -> Quarantine Vault
+- Eskalate -> Home Directory -> User-Space
+- Init-Reaper -> Process Table -> Scheduler Core
+- Shred-Null -> Temp Directory -> Ephemeral Cache
+- Kernel-Driver -> Device Nodes -> Driver Channel
+- Da-Kernel -> Kernel Hub -> Root Directory
+
+SECRET/FINAL REWARD CREATURE
+- Sudo -S
+- Not a zone wild virus or regular boss
+- Unlocked from the final key flow

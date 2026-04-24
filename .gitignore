@@ -5,3 +5,5 @@ app-release/
 saved_games/
 dist/
 setup.sh
+linuxpush.sh
+linuxrelease.sh

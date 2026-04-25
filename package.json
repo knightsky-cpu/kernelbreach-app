@@ -30,7 +30,7 @@
   "engines": {
     "node": ">=18"
   },
-  "license": "UNLICENSED",
+  "license": "BSD-3-Clause",
   "devDependencies": {
     "electron": "^41.3.0",
     "electron-builder": "^26.8.1"

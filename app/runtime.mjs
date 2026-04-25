@@ -3537,6 +3537,103 @@ function renderSplash(frame) {
   }
   renderFrame(out);
 }
+function renderLaunchAnimation(state2) {
+  const frame = state2.launchFrame ?? 0;
+  const { cols, rows } = getTerminalSize();
+  const width = Math.max(56, cols);
+  const height = Math.max(22, rows);
+  const sceneW = Math.min(width - 4, 88);
+  const sceneH = Math.min(height - 4, 24);
+  const left = Math.max(0, Math.floor((width - sceneW) / 2));
+  const top = Math.max(0, Math.floor((height - sceneH) / 2));
+  const groundY = top + Math.floor(sceneH * 0.72);
+  const terminalX = left + Math.floor(sceneW * 0.62);
+  const terminalY = groundY - 10;
+  const startX = left + 2;
+  const stopX = terminalX - 14;
+  const runProgress = Math.min(1, frame / 30);
+  const charX = frame < 70 ? Math.round(startX + (stopX - startX) * runProgress) : Math.round(stopX + Math.min(1, (frame - 70) / 24) * 17);
+  const charY = groundY - 5 + (frame < 30 && frame % 8 < 4 ? -1 : 0);
+  const lines = Array.from({ length: height }, () => Array.from({ length: width }, () => " "));
+  function stamp(x, y, text, colorCode = WHITE) {
+    if (y < 0 || y >= height) return;
+    for (let i = 0; i < text.length; i++) {
+      const px = x + i;
+      if (px < 0 || px >= width) continue;
+      lines[y][px] = `${colorCode}${text[i]}${RESET}`;
+    }
+  }
+  function stampBlock(x, y, block, colorCode = WHITE) {
+    for (let i = 0; i < block.length; i++) {
+      stamp(x, y + i, block[i], colorCode);
+    }
+  }
+  stamp(left, top, "Sentinel transfer chamber", BRIGHT_CYAN);
+  stamp(left, groundY + 1, "_".repeat(sceneW), GREY);
+  const terminalInnerW = 28;
+  const terminal = [
+    `.${"-".repeat(terminalInnerW)}.`,
+    `|${" ".repeat(terminalInnerW)}|`,
+    `|${" ".repeat(terminalInnerW)}|`,
+    `|${" ".repeat(terminalInnerW)}|`,
+    `|${" ".repeat(terminalInnerW)}|`,
+    `|${" ".repeat(terminalInnerW)}|`,
+    `'${"-".repeat(terminalInnerW)}'`,
+    `${" ".repeat(12)}|____|${" ".repeat(10)}`,
+    `${" ".repeat(10)}__/____\\__${" ".repeat(8)}`
+  ];
+  stampBlock(terminalX, terminalY, terminal, frame > 58 && frame % 6 < 3 ? BRIGHT_WHITE : BRIGHT_CYAN);
+  const commands = [
+    "$ sudo sentinel --link",
+    "auth: accepted",
+    "vector: kernel://breach",
+    "transfer: armed"
+  ];
+  const typedChars = Math.max(0, (frame - 32) * 2);
+  let budget = typedChars;
+  for (let i = 0; i < commands.length; i++) {
+    const raw = commands[i];
+    const shown = raw.slice(0, Math.max(0, Math.min(raw.length, budget)));
+    budget -= raw.length + 2;
+    if (shown.length > 0) {
+      stamp(terminalX + 2, terminalY + 1 + i, shown.padEnd(terminalInnerW - 2), i === 0 ? BRIGHT_GREEN : BRIGHT_YELLOW);
+    }
+  }
+  if (frame > 58 && frame < 70) {
+    const flash = frame % 4 < 2 ? BRIGHT_WHITE : BRIGHT_YELLOW;
+    stamp(terminalX + 2, terminalY + 2, pad("LINK ESTABLISHED", terminalInnerW - 2, "center"), flash);
+  }
+  if (frame < 70) {
+    const walkA = ["   ()  ", "  /||\\ ", " / || \\", "  /  \\ ", " /    \\"];
+    const walkB = ["   ()  ", "  /||\\ ", " / || \\", "   /\\  ", "  /  \\"];
+    stampBlock(charX, charY, frame % 8 < 4 ? walkA : walkB, BRIGHT_MAGENTA);
+  } else if (frame < 96) {
+    const beamStart = terminalX + 2;
+    const beamEnd = Math.max(beamStart, charX + 4);
+    const beam = "=".repeat(Math.max(1, beamEnd - beamStart));
+    const beamColor = frame % 6 < 3 ? BRIGHT_CYAN : BRIGHT_MAGENTA;
+    stamp(beamStart, charY + 2, beam, beamColor);
+    stamp(beamStart + 1, charY + 1, ".".repeat(Math.max(1, beam.length - 2)), BRIGHT_WHITE);
+    const dissolve = frame < 78 ? ["   ()  ", "  /||\\ ", " / || \\", "  /  \\ ", " /    \\"] : frame < 86 ? ["   **  ", "  /|.  ", " . ||\\ ", "   .\\  ", " .    ."] : ["    .. ", "   ||  ", "  . .  ", "       ", " .    ."];
+    stampBlock(charX, charY, dissolve, frame % 4 < 2 ? BRIGHT_WHITE : BRIGHT_MAGENTA);
+    stamp(terminalX + 2, terminalY + 2, pad("DOWNLOADING USER", terminalInnerW - 2, "center"), BRIGHT_CYAN);
+  } else {
+    stamp(terminalX + 2, terminalY + 2, pad("TRANSFER COMPLETE", terminalInnerW - 2, "center"), BRIGHT_GREEN);
+    stamp(terminalX + 2, terminalY + 3, pad("welcome, architect", terminalInnerW - 2, "center"), BRIGHT_CYAN);
+  }
+  if (frame > 88) {
+    const sparks = ["*", ".", "+", "."];
+    for (let i = 0; i < 12; i++) {
+      const sx = terminalX - 5 + i * 3;
+      const sy = terminalY - 2 + Math.floor(Math.sin((frame + i) * 0.7) * 2);
+      stamp(sx, sy, sparks[(frame + i) % sparks.length], i % 2 ? BRIGHT_CYAN : BRIGHT_YELLOW);
+    }
+  }
+  const hint = frame >= LAUNCH_SKIP_FRAMES ? "Enter/Space/X/Esc: Skip" : "Initializing transfer...";
+  stamp(left, top + sceneH - 1, hint, GREY);
+  const out = lines.map((row) => row.join(""));
+  renderFrame(out);
+}
 function renderTitle(cursor, statusMessage = "") {
   const rows = [];
   const W = getGameWidth();
@@ -4226,6 +4323,8 @@ function handleDebugLog(state2, key) {
 var ENCOUNTER_RATE = 0.2;
 var DUNGEON_ENCOUNTER_RATE = 0.3;
 var SPLASH_FRAMES = 28;
+var LAUNCH_ANIMATION_FRAMES = 112;
+var LAUNCH_SKIP_FRAMES = 20;
 function createInitialState() {
   return {
     screen: "splash",
@@ -4405,7 +4504,7 @@ function getAudioContextScreen(state2) {
   if (state2.screen === "overworld") return "overworld";
   if (state2.screen === "game_over") return "game_over";
   if (state2.screen === "secret_unlock" || state2.screen === "final_key_input") return "victory";
-  if (state2.screen === "splash" || state2.screen === "title" || state2.screen === "new_game_name" || state2.screen === "new_game_password" || state2.screen === "story_briefing" || state2.screen === "load_game") {
+  if (state2.screen === "splash" || state2.screen === "title" || state2.screen === "new_game_name" || state2.screen === "new_game_password" || state2.screen === "story_briefing" || state2.screen === "launch_animation" || state2.screen === "load_game") {
     return "title";
   }
   if (AUDIO_CONTEXT_SCREENS.has(state2.screen)) {
@@ -4512,13 +4611,26 @@ function handleStoryBriefing(state2, key) {
   const player = normalizePlayerProgress(createNewPlayer(state2.loginUser || "root"));
   return {
     ...state2,
-    screen: "overworld",
+    screen: "launch_animation",
     player,
     messages: [`Root access granted. Lead Security Architect ${player.name} authenticated.`, `${player.party[0]?.nickname ?? "Exploit"} linked and ready for deployment.`],
     menuCursor: 0,
+    launchFrame: 0,
     nameInput: "",
     passwordInput: ""
   };
+}
+function enterOverworldAfterLaunch(state2) {
+  return {
+    ...state2,
+    screen: "overworld",
+    launchFrame: void 0
+  };
+}
+function handleLaunchAnimation(state2, key) {
+  if ((state2.launchFrame ?? 0) < LAUNCH_SKIP_FRAMES) return state2;
+  if (isConfirm(key) || isCancel(key)) return enterOverworldAfterLaunch(state2);
+  return state2;
 }
 function handleLoadGame(state2, key) {
   const slots = getSaveSlots();
@@ -4932,6 +5044,13 @@ function advanceAnimations(state2) {
       };
     }
     return { ...state2, splashFrame: nextFrame };
+  }
+  if (state2.screen === "launch_animation") {
+    const nextFrame = (state2.launchFrame ?? 0) + 1;
+    if (nextFrame >= LAUNCH_ANIMATION_FRAMES) {
+      return enterOverworldAfterLaunch(state2);
+    }
+    return { ...state2, launchFrame: nextFrame };
   }
   const anim = state2.battleAnimation;
   if (!anim) return state2;
@@ -5882,6 +6001,8 @@ function handleKey(state2, key) {
       return handleNewGamePassword(state2, key);
     case "story_briefing":
       return handleStoryBriefing(state2, key);
+    case "launch_animation":
+      return handleLaunchAnimation(state2, key);
     case "load_game":
       return handleLoadGame(state2, key);
     case "scripts_terminal":
@@ -5940,6 +6061,9 @@ function renderState(state2) {
       break;
     case "story_briefing":
       renderStoryBriefing(state2.loginUser ?? "");
+      break;
+    case "launch_animation":
+      renderLaunchAnimation(state2);
       break;
     case "load_game":
       renderLoadGame(getSaveSlots(), state2.menuCursor);
@@ -6026,7 +6150,7 @@ function commitState(next) {
   scheduleAnimationTick();
 }
 function scheduleAnimationTick() {
-  if (animationTimer || !state.battleAnimation && state.screen !== "splash") return;
+  if (animationTimer || !state.battleAnimation && state.screen !== "splash" && state.screen !== "launch_animation") return;
   animationTimer = setTimeout(() => {
     animationTimer = void 0;
     const next = advanceAnimations(state);

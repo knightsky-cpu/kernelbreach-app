@@ -1172,6 +1172,23 @@ var idCounter = Date.now();
 function generateId() {
   return (idCounter++).toString(36);
 }
+function getStarterSpeciesPool() {
+  const bossSpecies = new Set(Object.values(ZONE_CONFIGS).map((zone) => zone.bossSpecies));
+  const species = [];
+  for (const zone of Object.values(ZONE_CONFIGS)) {
+    for (const candidate of zone.wildSpecies ?? []) {
+      if (bossSpecies.has(candidate) || candidate === "Sudo -S") continue;
+      if (!species.includes(candidate)) species.push(candidate);
+    }
+  }
+  return species;
+}
+function rollStarterRarity(rng) {
+  const rarityRoll = rng();
+  if (rarityRoll > 0.85) return "rare";
+  if (rarityRoll > 0.6) return "uncommon";
+  return "common";
+}
 function getSpeciesSkills(species) {
   const common = ["Byte", "Exploit", "Prompt Injection"];
   const bossSkills = {
@@ -1260,30 +1277,37 @@ function rollBoss(species, level) {
   };
 }
 function rollStarterCreature() {
-  const species = "Bit-Blob";
-  const seed = fnv1a(`starter-${Date.now()}`);
+  const starterPool = getStarterSpeciesPool();
+  const species = starterPool[Math.floor(Math.random() * starterPool.length)] ?? "Bit-Blob";
+  const seed = fnv1a(`starter-${species}-${Date.now()}-${Math.random()}`);
   const rng = mulberry32(seed);
+  const rarity = rollStarterRarity(rng);
   const eye = pick(rng, EYES);
-  const maxHp = calcMaxHp(1, 2, 0);
+  const hat = rarity === "common" ? "none" : pick(rng, HATS);
+  const shiny = rng() < 0.01;
+  const baseStat = RARITY_BASE_STAT[rarity];
+  const baseStr = Math.max(1, baseStat + Math.floor(rng() * 2));
+  const baseCon = Math.max(1, baseStat + Math.floor(rng() * 2));
+  const maxHp = calcMaxHp(1, baseCon, 0);
   return {
     id: generateId(),
     species,
-    nickname: "Bit-Blob",
+    nickname: species,
     eye,
-    hat: "none",
-    rarity: "common",
+    hat,
+    rarity,
     level: 1,
     maxHp,
     currentHp: maxHp,
-    baseStr: 2,
-    baseCon: 2,
+    baseStr,
+    baseCon,
     allocatedStr: 0,
     allocatedCon: 0,
     xp: 0,
     xpToNext: xpForLevel(2),
     skillPoints: 0,
     isBoss: false,
-    shiny: false,
+    shiny,
     skills: getSpeciesSkills(species)
   };
 }
@@ -1578,21 +1602,21 @@ var ITEMS = {
   potion: {
     id: "potion",
     name: "Patch-Kit",
-    description: "Restores 30 integrity to one sub-routine.",
+    description: "Restores 30 MB to one sub-routine.",
     price: 25,
     healAmount: 30
   },
   super_potion: {
     id: "super_potion",
     name: "System-Patch",
-    description: "Restores 80 integrity to one sub-routine.",
+    description: "Restores 80 MB to one sub-routine.",
     price: 50,
     healAmount: 80
   },
   full_restore: {
     id: "full_restore",
     name: "Kernel-Rebuild",
-    description: "Fully rebuilds sub-routine integrity.",
+    description: "Fully rebuilds sub-routine memory.",
     price: 125,
     healAmount: 9999
   }
@@ -1656,7 +1680,7 @@ var SCRIPT_DEFS = {
     id: "sniff",
     name: "sniff",
     context: "battle",
-    description: "Read enemy diagnostics, integrity, and link readiness."
+    description: "Read enemy diagnostics, memory, and link readiness."
   },
   purge: {
     id: "purge",
@@ -1692,6 +1716,7 @@ function hasScriptsMenuAccess(state2) {
   return isDevMenuEnabled() && !!state2.showDevMenu || getDiscoveredScripts(state2.player ?? {}).length > 0;
 }
 function getMenuOptions(state2) {
+  if (state2.tutorial?.active) return ["Resume", "Exploits", "Patches"];
   const opts = ["Resume", "Exploits", "Saved Exploits"];
   if (hasScriptsMenuAccess(state2)) opts.push("Scripts");
   opts.push("Patches", state2.player?.bgmMuted ? "Unmute BGM" : "Mute BGM", "Save Game", "Quit to Title");
@@ -1765,7 +1790,7 @@ var SKILLS = {
     description: "Inject malicious code for damage over time.",
     power: 5,
     acc: 0.85,
-    effect: { type: "dot", amount: 3, duration: 4, log: "Malicious process is draining integrity!" }
+    effect: { type: "dot", amount: 3, duration: 4, log: "Malicious process is draining memory!" }
   },
   "Cold-Boot": {
     name: "Cold-Boot",
@@ -1790,7 +1815,7 @@ var SKILLS = {
   },
   "Data Leak": {
     name: "Data Leak",
-    description: "Exfiltrate data to drain integrity over time.",
+    description: "Exfiltrate data to drain memory over time.",
     power: 0,
     acc: 0.95,
     effect: { type: "dot", amount: 2, duration: 5, log: "Data exfiltration in progress..." }
@@ -1832,7 +1857,7 @@ var SKILLS = {
   },
   "Secure Delete": {
     name: "Secure Delete",
-    description: "Shred integrity blocks for severe lingering damage.",
+    description: "Shred memory blocks for severe lingering damage.",
     power: 10,
     acc: 0.9,
     effect: { type: "dot", amount: 6, duration: 4, log: "Integrity blocks are being securely shredded!" }
@@ -2078,6 +2103,9 @@ function finishTurn(battle, party) {
 function planBattleAction(state2, action, playerParty, playerItems, options) {
   const steps = [];
   const initial = cloneBattle(state2);
+  initial.selectingSkill = false;
+  initial.selectingScript = false;
+  initial.selectingSwitch = false;
   initial.phase = "enemy_turn";
   let items = playerItems;
   let currentParty = playerParty;
@@ -2124,9 +2152,9 @@ function planBattleAction(state2, action, playerParty, playerItems, options) {
     if (scriptName === "sniff") {
       const enemy = resolved.enemy.creature;
       resolved.log.push(`${resolved.player.creature.nickname} executes sniff.`);
-      resolved.log.push(`Diagnostics: Lv${enemy.level} HP ${enemy.currentHp}/${enemy.maxHp}`);
+      resolved.log.push(`Diagnostics: Lv${enemy.level} MB ${enemy.currentHp}/${enemy.maxHp}`);
       resolved.log.push(`Attack ${calcAttack(enemy.level, enemy.baseStr, enemy.allocatedStr)} // Defense ${calcDefense(enemy.level, enemy.baseCon, enemy.allocatedCon)}`);
-      resolved.log.push(resolved.canCatch && enemy.currentHp / enemy.maxHp <= 0.5 ? "Link status: capture window open." : "Link status: reduce integrity below 50%.");
+      resolved.log.push(resolved.canCatch && enemy.currentHp / enemy.maxHp <= 0.5 ? "Link status: capture window open." : "Link status: reduce memory below 50%.");
       steps.push(stateStep(resolved, syncParty(currentParty, resolved)));
       steps.push(animationStep("defend", "player", 4));
       return { initialBattle: initial, steps: [...steps, ...enemyPlan(resolved, currentParty)] };
@@ -2170,7 +2198,7 @@ function planBattleAction(state2, action, playerParty, playerItems, options) {
     const resolved = cloneBattle(initial);
     const roll = Math.random();
     const chance = 0.5 + Math.max(0, battleScore(resolved.player.creature) - battleScore(resolved.enemy.creature)) * 0.02;
-    if (roll < Math.min(0.9, chance)) {
+    if (state2.context === "tutorial" || roll < Math.min(0.9, chance)) {
       resolved.log.push("Program compiled with exit code 0");
       resolved.phase = "result";
       resolved.result = "flee";
@@ -2201,7 +2229,7 @@ function planBattleAction(state2, action, playerParty, playerItems, options) {
         currentHp: Math.min(resolved.player.creature.maxHp, resolved.player.creature.currentHp + item.healAmount)
       }
     };
-    resolved.log.push(`Integrity restored by ${healAmount}.`);
+    resolved.log.push(`Memory restored by ${healAmount} MB.`);
     items = { ...playerItems, [options.itemId]: count - 1 };
     currentParty = syncParty(currentParty, resolved);
     steps.push(stateStep(resolved, currentParty, items));
@@ -3125,7 +3153,7 @@ function buildInfoPanel(player, messages) {
     const lvl = color(`Lv${c.level}`, GREY);
     const faint = active ? "" : color(" [fainted]", RED);
     lines.push(`${active ? "\u25B6" : " "} ${color(name.padEnd(10), active ? BRIGHT_WHITE : GREY)} ${lvl}${faint}`);
-    lines.push(`  ${hp} ${c.currentHp}/${c.maxHp}`);
+    lines.push(`  ${hp} ${c.currentHp}/${c.maxHp} MB`);
   }
   lines.push("");
   lines.push(`${color("Credits:", BRIGHT_YELLOW)} ${color(`${player.gold}CR`, YELLOW)}`);
@@ -3181,7 +3209,7 @@ function buildDungeonInfoPanel(player, zone, bossDefeated, messages) {
     const name = c.shiny ? `\u2726${c.nickname}` : c.nickname;
     const hp = hpBar(c.currentHp, c.maxHp, 8);
     lines.push(`${active ? "\u25B6" : " "} ${color(name.padEnd(10), active ? WHITE : GREY)} Lv${c.level}`);
-    lines.push(`  ${hp} ${c.currentHp}/${c.maxHp}`);
+    lines.push(`  ${hp} ${c.currentHp}/${c.maxHp} MB`);
   }
   lines.push("");
   if (bossDefeated) {
@@ -3261,10 +3289,34 @@ function buildTargetLogLines(player, width) {
   }
   return lines;
 }
+function isTutorialActive(state2) {
+  return state2.tutorial?.active === true;
+}
+function getTutorialPrompt(state2) {
+  if (!isTutorialActive(state2)) return "";
+  const step = state2.tutorial.step;
+  const battleStep = state2.tutorial.battleStep;
+  if (step === "move") return "Tutorial: Use WASD or arrow keys to move one tile.";
+  if (step === "open_menu") return "Tutorial: Press M to open the menu.";
+  if (step === "open_party") return "Tutorial: Select Exploits and press Enter.";
+  if (step === "close_party") return "Tutorial: This is your active exploit. Press X to return.";
+  if (step === "open_inventory") return "Tutorial: Press I to open Patches.";
+  if (step === "close_inventory") return "Tutorial: Patches restore memory. Press X to return.";
+  if (step === "start_battle") return "Tutorial: Press E to start a training battle.";
+  if (step === "battle") {
+    if (battleStep === "skill") return "Tutorial: Choose Skill, then use Byte.";
+    if (battleStep === "patch") return "Tutorial: Choose Patch and use a Patch-Kit.";
+    if (battleStep === "script") return "Tutorial: Choose Scripts, then run sniff.";
+    if (battleStep === "link") return "Tutorial: Link captures weakened hostile code. Choose Link once.";
+    if (battleStep === "finish") return "Tutorial: Choose Flee to end training, or finish the battle.";
+  }
+  return "Tutorial: Follow the prompt to continue.";
+}
 function renderOverworld(state2) {
   const { player, messages } = state2;
   const map = ZONE_MAPS[player.currentZone];
-  const infoLines = buildInfoPanel(player, messages);
+  const tutorialPrompt = getTutorialPrompt(state2);
+  const infoLines = buildInfoPanel(player, tutorialPrompt ? [tutorialPrompt, ...messages] : messages);
   const rows = [];
   const layout = getLayout();
   const viewportX = getViewportStart(MAP_WIDTH, layout.visibleMapCols, player.position.x);
@@ -3500,7 +3552,7 @@ function renderTitle(cursor, statusMessage = "") {
     color(pad("The kernel has been breached. Restore the system.", W, "center"), BRIGHT_YELLOW),
     ""
   ];
-  const opts = ["New Game", "Load Game", "Quit"];
+  const opts = ["New Game", "Load Game", "Tutorial", "Quit"];
   const optionLines = [];
   for (let i = 0; i < opts.length; i++) {
     const selected = i === cursor;
@@ -3618,6 +3670,11 @@ function renderMenu(state2) {
   const logLines = buildTargetLogLines(player, W - 4).slice(-6);
   const rows = [];
   rows.push(topBorder("MENU", W));
+  const tutorialPrompt = getTutorialPrompt(state2);
+  if (tutorialPrompt) {
+    rows.push(`\u2502 ${pad(color(tutorialPrompt, BRIGHT_CYAN), W - 4)} \u2502`);
+    rows.push(divider(W));
+  }
   const opts = getMenuOptions(state2);
   for (let i = 0; i < opts.length; i++) {
     const selected = i === menuCursor;
@@ -3696,6 +3753,29 @@ function renderInventory(player, cursor) {
   rows.push(dim("\u2191\u2193: Select   Enter: Use   X: Back"));
   renderFrame(rows);
 }
+function renderTutorialInventory(state2) {
+  const W = getGameWidth();
+  const rows = [];
+  const inventoryItems = Object.keys(ITEMS);
+  rows.push(topBorder("PATCHES", W));
+  rows.push(`\u2502 ${pad(color(getTutorialPrompt(state2), BRIGHT_CYAN), W - 4)} \u2502`);
+  rows.push(divider(W));
+  rows.push(`\u2502 ${pad(`${bold("Credits:")} ${color(`${state2.player.gold}CR`, YELLOW)}`, W - 4)} \u2502`);
+  rows.push(divider(W));
+  for (let i = 0; i < inventoryItems.length; i++) {
+    const id = inventoryItems[i];
+    const item = ITEMS[id];
+    const owned = state2.player.items[id] ?? 0;
+    const selected = i === state2.menuCursor;
+    const prefix = selected ? color("\u25B6 ", BRIGHT_YELLOW) : "  ";
+    const name = owned > 0 ? item.name : dim(item.name);
+    const line = `${name.padEnd(20)} ${dim(`x${owned}`.padEnd(6))} ${dim(item.description)}`;
+    rows.push(`\u2502 ${prefix}${pad(line, W - 6)} \u2502`);
+  }
+  rows.push(bottomBorder(W));
+  rows.push(dim("X: Back"));
+  renderFrame(rows);
+}
 function renderItemTarget(player, cursor, itemId) {
   const W = getGameWidth();
   const rows = [];
@@ -3706,7 +3786,7 @@ function renderItemTarget(player, cursor, itemId) {
     const selected = i === cursor;
     const prefix = selected ? color("\u25B6 ", BRIGHT_YELLOW) : "  ";
     const hp = hpBar(c.currentHp, c.maxHp, 12);
-    rows.push(`\u2502 ${prefix}${pad(`${c.nickname.padEnd(14)} Lv${c.level}  ${hp} ${c.currentHp}/${c.maxHp}`, W - 6)} \u2502`);
+    rows.push(`\u2502 ${prefix}${pad(`${c.nickname.padEnd(14)} Lv${c.level}  ${hp} ${c.currentHp}/${c.maxHp} MB`, W - 6)} \u2502`);
   }
   rows.push(bottomBorder(W));
   rows.push(dim("\u2191\u2193: Select Target   Enter: Use   X: Back"));
@@ -3717,6 +3797,11 @@ function renderPartyView(state2) {
   const { player, menuCursor } = state2;
   const rows = [];
   rows.push(topBorder("EXPLOITS", W));
+  const tutorialPrompt = getTutorialPrompt(state2);
+  if (tutorialPrompt) {
+    rows.push(`\u2502 ${pad(color(tutorialPrompt, BRIGHT_CYAN), W - 4)} \u2502`);
+    rows.push(divider(W));
+  }
   for (let i = 0; i < 4; i++) {
     const c = player.party[i];
     const selected = i === menuCursor;
@@ -3731,7 +3816,7 @@ function renderPartyView(state2) {
     const reorderTag = reorderSource ? color(" [MOVE]", BRIGHT_CYAN) : "";
     const speciesDisplay = SPECIES_NAMES[c.species] ?? c.species;
     rows.push(`\u2502 ${pad(`${selected ? color("\u25B6 ", BRIGHT_YELLOW) : "  "}${rColor}${name}${RESET}${sp}${reorderTag}  ${dim(`Lv${c.level} ${speciesDisplay}`)}`, W - 4)} \u2502`);
-    rows.push(`\u2502 ${pad(`   HP: ${hpBar(c.currentHp, c.maxHp, 12)} ${c.currentHp}/${c.maxHp}  XP: ${xpBar(c.xp, c.xpToNext, 8)}`, W - 4)} \u2502`);
+    rows.push(`\u2502 ${pad(`   MB: ${hpBar(c.currentHp, c.maxHp, 12)} ${c.currentHp}/${c.maxHp}  XP: ${xpBar(c.xp, c.xpToNext, 8)}`, W - 4)} \u2502`);
     const str = c.baseStr + c.allocatedStr;
     const con = c.baseCon + c.allocatedCon;
     rows.push(`\u2502 ${pad(`   ATK:${calcAttack(c.level, c.baseStr, c.allocatedStr)} DEF:${calcDefense(c.level, c.baseCon, c.allocatedCon)}  STR:${str}(+${c.allocatedStr}) CON:${con}(+${c.allocatedCon})  ${RARITY_STARS[c.rarity]}`, W - 4)} \u2502`);
@@ -3754,7 +3839,7 @@ function renderStatUpgrade(creature, cursor) {
   rows.push(topBorder(`UPGRADE - ${creature.nickname}`, W));
   rows.push(`\u2502 ${pad(`${dim(`Skill Points Available: `)}${bold(color(creature.skillPoints.toString(), BRIGHT_YELLOW))}`, W - 4)} \u2502`);
   rows.push(divider(W));
-  const opts = ["STR (increases Attack)", "CON (increases Defense & HP)"];
+  const opts = ["STR (increases Attack)", "CON (increases Defense & MB)"];
   for (let i = 0; i < opts.length; i++) {
     const selected = i === cursor;
     const val = i === 0 ? `${color(`STR: ${creature.baseStr + creature.allocatedStr}`, BRIGHT_RED)} (base ${creature.baseStr} + ${creature.allocatedStr} allocated)` : `${color(`CON: ${creature.baseCon + creature.allocatedCon}`, BRIGHT_BLUE)} (base ${creature.baseCon} + ${creature.allocatedCon} allocated)`;
@@ -3953,6 +4038,18 @@ function renderSecretUnlock() {
   rows.push(bold(color(pad("\u2726 \u2726 \u2726 \u2726 \u2726 \u2726 \u2726 \u2726 \u2726 \u2726 \u2726 \u2726 \u2726", W, "center"), BRIGHT_YELLOW)));
   rows.push("");
   rows.push(dim(pad("Press ENTER to continue", W, "center")));
+  renderFrame(rows);
+}
+function renderTutorialComplete() {
+  const W = getGameWidth();
+  const rows = [];
+  rows.push("");
+  rows.push(bold(color(pad("TUTORIAL COMPLETE", W, "center"), BRIGHT_CYAN)));
+  rows.push("");
+  rows.push(pad("You moved, opened menus, checked patches, and completed battle training.", W, "center"));
+  rows.push(pad("Return to the title screen when you are ready to start a new purge.", W, "center"));
+  rows.push("");
+  rows.push(dim(pad("Press ENTER to return to title", W, "center")));
   renderFrame(rows);
 }
 function renderFinalKeyInput(state2) {
@@ -4172,6 +4269,132 @@ function createNewPlayer(name) {
     verboseDebug: false
   };
 }
+function rollTutorialCreature() {
+  const species = "Bit-Blob";
+  const maxHp = calcMaxHp(3, 2, 0);
+  return {
+    id: generateId(),
+    species,
+    nickname: "Bit-Blob",
+    eye: "\xB7",
+    hat: "none",
+    rarity: "common",
+    level: 3,
+    maxHp,
+    currentHp: maxHp,
+    baseStr: 2,
+    baseCon: 2,
+    allocatedStr: 0,
+    allocatedCon: 0,
+    xp: 0,
+    xpToNext: xpForLevel(4),
+    skillPoints: 0,
+    isBoss: false,
+    shiny: false,
+    skills: ["Byte", "Exploit", "Prompt Injection"]
+  };
+}
+function createTutorialPlayer() {
+  const starter = rollTutorialCreature();
+  return normalizePlayerProgress({
+    name: "Tutorial",
+    id: "TRAIN",
+    party: [starter],
+    storage: [],
+    gold: 0,
+    items: { potion: 2 },
+    defeatedBosses: [],
+    targetLog: [],
+    discoveredScripts: ["sniff"],
+    hiddenScriptsByZone: {},
+    recoveredScriptZones: [...OVERWORLD_SCRIPT_ZONES],
+    keyPieces: [],
+    finalSecretKey: generateFinalSecretKey(),
+    finalKeyUnlocked: false,
+    secretUnlocked: false,
+    position: { x: 19, y: 12 },
+    currentZone: "central",
+    playtime: 0,
+    devMode: false,
+    allDungeonsUnlocked: false,
+    noEncounters: true,
+    bgmMuted: false,
+    audioDebug: false,
+    verboseDebug: false
+  });
+}
+function createTutorialState(state2) {
+  const player = createTutorialPlayer();
+  return {
+    ...state2,
+    screen: "overworld",
+    player,
+    dungeon: void 0,
+    battle: void 0,
+    battleAnimation: void 0,
+    messages: [],
+    menuCursor: 0,
+    previousScreen: "title",
+    menuReturnScreen: "overworld",
+    tutorial: {
+      active: true,
+      step: "move",
+      battleStep: "skill"
+    }
+  };
+}
+function createTutorialBattleState(state2) {
+  const player = {
+    ...state2.player,
+    party: state2.player.party.map((creature, idx) => idx === 0 ? {
+      ...creature,
+      currentHp: Math.max(1, creature.maxHp - 10)
+    } : creature)
+  };
+  const enemy = rollWildCreature("central", "Data-Duck", 1);
+  enemy.nickname = "Training-Duck";
+  enemy.level = 1;
+  enemy.baseStr = 1;
+  enemy.baseCon = 1;
+  enemy.allocatedStr = 0;
+  enemy.allocatedCon = 0;
+  enemy.skills = ["Byte"];
+  enemy.maxHp = 44;
+  enemy.currentHp = enemy.maxHp;
+  const battle = {
+    ...createBattle("tutorial", player.party[0], 0, enemy),
+    canCatch: true,
+    log: ["Training process spawned: Training-Duck."]
+  };
+  return {
+    ...state2,
+    screen: "battle",
+    previousScreen: "overworld",
+    player,
+    battle,
+    tutorial: {
+      ...state2.tutorial,
+      step: "battle",
+      battleStep: "skill"
+    }
+  };
+}
+function completeTutorial(state2) {
+  return {
+    ...state2,
+    screen: "tutorial_complete",
+    battle: void 0,
+    battleAnimation: void 0,
+    dungeon: void 0,
+    messages: [],
+    menuCursor: 0,
+    tutorial: {
+      active: true,
+      step: "complete",
+      battleStep: "finish"
+    }
+  };
+}
 function addMessage(state2, msg) {
   return { ...state2, messages: [...state2.messages.slice(-20), msg] };
 }
@@ -4222,13 +4445,14 @@ function handleSplash(state2) {
   };
 }
 function handleTitle(state2, key) {
-  const opts = 3;
+  const opts = 4;
   if (isUp(key)) return { ...state2, menuCursor: (state2.menuCursor - 1 + opts) % opts };
   if (isDown(key)) return { ...state2, menuCursor: (state2.menuCursor + 1) % opts };
   if (isConfirm(key)) {
     if (state2.menuCursor === 0) return { ...state2, screen: "new_game_name", menuCursor: 0, nameInput: "", passwordInput: "", loginUser: "" };
     if (state2.menuCursor === 1) return { ...state2, screen: "load_game", menuCursor: 0 };
-    if (state2.menuCursor === 2) {
+    if (state2.menuCursor === 2) return createTutorialState(state2);
+    if (state2.menuCursor === 3) {
       requestRuntimeQuit();
     }
   }
@@ -4290,7 +4514,7 @@ function handleStoryBriefing(state2, key) {
     ...state2,
     screen: "overworld",
     player,
-    messages: [`Root access granted. Lead Security Architect ${player.name} authenticated.`, `Bit-Blob linked and ready for deployment.`],
+    messages: [`Root access granted. Lead Security Architect ${player.name} authenticated.`, `${player.party[0]?.nickname ?? "Exploit"} linked and ready for deployment.`],
     menuCursor: 0,
     nameInput: "",
     passwordInput: ""
@@ -4319,6 +4543,7 @@ function handleLoadGame(state2, key) {
   return state2;
 }
 function handleOverworld(state2, key) {
+  if (isTutorialActive(state2)) return handleTutorialOverworld(state2, key);
   if (isDevMenuEnabled() && key === KEY.DEV_TOGGLE) {
     return { 
       ...state2, 
@@ -4356,6 +4581,60 @@ function handleOverworld(state2, key) {
   else if (isRight(key)) dir = "right";
   if (!dir) return state2;
   return moveOverworld(state2, dir);
+}
+function handleTutorialOverworld(state2, key) {
+  const step = state2.tutorial.step;
+  if (step === "move") {
+    let dir = null;
+    if (isUp(key)) dir = "up";
+    else if (isDown(key)) dir = "down";
+    else if (isLeft(key)) dir = "left";
+    else if (isRight(key)) dir = "right";
+    if (!dir) return state2;
+    const moved = moveOverworld({ ...state2, player: { ...state2.player, noEncounters: true } }, dir);
+    if (moved.player.position.x === state2.player.position.x && moved.player.position.y === state2.player.position.y) return moved;
+    return {
+      ...moved,
+      tutorial: { ...state2.tutorial, step: "open_menu" },
+      messages: []
+    };
+  }
+  if (step === "open_menu") {
+    if (key === KEY.m || key === KEY.M) {
+      return {
+        ...state2,
+        screen: "menu",
+        menuCursor: getMenuOptionIndex(state2, "Exploits"),
+        previousScreen: "overworld",
+        menuReturnScreen: "overworld",
+        tutorial: { ...state2.tutorial, step: "open_party" },
+        messages: []
+      };
+    }
+    return addMessage(state2, "Tutorial: press M to open the menu.");
+  }
+  if (step === "open_inventory") {
+    if (key === KEY.i || key === KEY.I) {
+      return {
+        ...state2,
+        screen: "inventory",
+        previousScreen: "overworld",
+        inventoryReturnScreen: "overworld",
+        itemUseContext: "field",
+        menuCursor: 0,
+        tutorial: { ...state2.tutorial, step: "close_inventory" },
+        messages: []
+      };
+    }
+    return addMessage(state2, "Tutorial: press I to open Patches.");
+  }
+  if (step === "start_battle") {
+    if (key === KEY.e || key === KEY.E || isConfirm(key)) {
+      return createTutorialBattleState(state2);
+    }
+    return addMessage(state2, "Tutorial: press E to start a training battle.");
+  }
+  return state2;
 }
 function moveOverworld(state2, dir) {
   const { player } = state2;
@@ -4582,6 +4861,31 @@ function startBossBattle(state2) {
   engineDebug(`start boss battle zone=${dungeon.zone} player=${player.party[idx].nickname} boss=${battle.enemy.creature.nickname} level=${battle.enemy.creature.level}`);
   return addMessage({ ...state2, screen: "battle", battle, previousScreen: "dungeon" }, `A corrupted Security Daemon denies further access.`);
 }
+function shouldProtectTutorialBattle(state2, battle) {
+  return state2.tutorial?.active === true && state2.tutorial.step === "battle" && battle?.context === "tutorial";
+}
+function protectTutorialBattle(state2, battle) {
+  if (!shouldProtectTutorialBattle(state2, battle)) return battle;
+  let protectedBattle = battle;
+  const tutorialLogs = [];
+  if (protectedBattle.player.creature.currentHp <= 0) {
+    protectedBattle = cloneBattle(protectedBattle);
+    protectedBattle.player.creature.currentHp = 1;
+    tutorialLogs.push("Tutorial safeguard: Bit-Blob memory pinned at 1 MB.");
+  }
+  if (state2.tutorial.battleStep !== "finish" && protectedBattle.enemy.creature.currentHp <= 0) {
+    if (protectedBattle === battle) protectedBattle = cloneBattle(protectedBattle);
+    protectedBattle.enemy.creature.currentHp = 1;
+    tutorialLogs.push("Tutorial safeguard: Training target memory pinned at 1 MB.");
+  }
+  if (protectedBattle !== battle) {
+    protectedBattle.phase = "player_action";
+    protectedBattle.result = void 0;
+    protectedBattle.caughtCreature = void 0;
+    protectedBattle.log = [...protectedBattle.log, ...tutorialLogs];
+  }
+  return protectedBattle;
+}
 function startBattleSequence(state2, battleAnimation) {
   if (!battleAnimation || battleAnimation.steps.length === 0) {
     return { ...state2, battleAnimation: void 0 };
@@ -4594,12 +4898,14 @@ function startBattleSequence(state2, battleAnimation) {
       break;
     }
     if (step.type === "animation") break;
+    const protectedBattle = protectTutorialBattle(nextState, step.battle);
+    const protectedParty = protectedBattle !== step.battle ? syncParty(step.party ?? nextState.player.party, protectedBattle) : step.party;
     nextState = {
       ...nextState,
-      battle: step.battle,
+      battle: protectedBattle,
       player: {
         ...nextState.player,
-        party: step.party ?? nextState.player.party,
+        party: protectedParty ?? nextState.player.party,
         items: step.items ?? nextState.player.items
       },
       battleAnimation: {
@@ -4664,7 +4970,7 @@ function useFieldItem(state2, itemId, targetIdx) {
   const target = state2.player.party[targetIdx];
   const count = state2.player.items[itemId] ?? 0;
   if (!item || !target || count <= 0) return addMessage(state2, "That patch is unavailable.");
-  if (target.currentHp >= target.maxHp) return addMessage(state2, `${target.nickname} is already at full integrity.`);
+  if (target.currentHp >= target.maxHp) return addMessage(state2, `${target.nickname} is already at full memory.`);
   const healAmount = Math.min(item.healAmount, target.maxHp - target.currentHp);
   const updatedTarget = { ...target, currentHp: Math.min(target.maxHp, target.currentHp + item.healAmount) };
   const newParty = [...state2.player.party];
@@ -4681,11 +4987,13 @@ function useFieldItem(state2, itemId, targetIdx) {
     itemUseContext: void 0,
     player: { ...state2.player, party: newParty, items: newItems },
     menuCursor: returnCursor
-  }, `${item.name} applied to ${target.nickname}. Integrity restored by ${healAmount}.`);
+  }, `${item.name} applied to ${target.nickname}. Memory restored by ${healAmount} MB.`);
 }
 function useBattleItem(state2, itemId) {
   const { battle, player } = state2;
   if (!battle) return state2;
+  const tutorialBlock = getTutorialBattleActionMessage(state2, "item");
+  if (tutorialBlock) return addMessage({ ...state2, screen: "battle", inventoryReturnScreen: void 0, selectedItemId: void 0, itemUseContext: void 0 }, tutorialBlock);
   const item = ITEMS[itemId];
   const count = player.items[itemId] ?? 0;
   if (!item || count <= 0) return addMessage(state2, "That patch is unavailable.");
@@ -4697,10 +5005,10 @@ function useBattleItem(state2, itemId) {
       inventoryReturnScreen: void 0,
       selectedItemId: void 0,
       itemUseContext: void 0
-  }, `${battle.player.creature.nickname} is already at full integrity.`);
+  }, `${battle.player.creature.nickname} is already at full memory.`);
   }
   const plan = planBattleAction(battle, "item", player.party, player.items, { itemId });
-  return startBattleSequence({
+  const sequenced = startBattleSequence({
     ...state2,
     screen: "battle",
     battle: plan.initialBattle,
@@ -4714,6 +5022,7 @@ function useBattleItem(state2, itemId) {
     stepIndex: 0,
     frame: 0
   });
+  return advanceTutorialBattleStep(sequenced, "item");
 }
 function renderBattle(state2) {
   const { player, battle } = state2;
@@ -4826,8 +5135,8 @@ function renderBattle(state2) {
   const rightCombatW = combatColW + Math.ceil(gap / 2);
   const enemyName = pad(`${enemyRarColor}${enemy.nickname}${RESET} Lv${enemy.level}`, leftCombatW, "center");
   const playerName = pad(`${playerRarColor}${playerC.nickname}${RESET} Lv${playerC.level}`, rightCombatW, "center");
-  const enemyBar = pad(`${hpBar(enemy.currentHp, enemy.maxHp, 10)} ${enemy.currentHp}/${enemy.maxHp}`, leftCombatW, "center");
-  const playerBar = pad(`${hpBar(playerC.currentHp, playerC.maxHp, 10)} ${playerC.currentHp}/${playerC.maxHp}`, rightCombatW, "center");
+  const enemyBar = pad(`${hpBar(enemy.currentHp, enemy.maxHp, 10)} ${enemy.currentHp}/${enemy.maxHp} MB`, leftCombatW, "center");
+  const playerBar = pad(`${hpBar(playerC.currentHp, playerC.maxHp, 10)} ${playerC.currentHp}/${playerC.maxHp} MB`, rightCombatW, "center");
   pushRow(`\u2502${enemyName}${playerName}\u2502`);
   pushRow(`\u2502${enemyBar}${playerBar}\u2502`);
   function getStatusIcons(participant) {
@@ -4856,6 +5165,11 @@ function renderBattle(state2) {
     pushRow(`\u2502 ${color(pad(line, W - 4), line.includes("!") ? WHITE : GREY)} \u2502`);
   }
   pushRow(divider(W));
+  const tutorialPrompt = getTutorialPrompt(state2);
+  if (tutorialPrompt) {
+    pushRow(`\u2502 ${pad(color(tutorialPrompt, BRIGHT_CYAN), W - 4)} \u2502`);
+    pushRow(divider(W));
+  }
   if (battle.phase === "player_action") {
     if (battle.selectingSkill) {
       const skills = playerC.skills;
@@ -4964,6 +5278,7 @@ function handleBattle(state2, key) {
   if (isUp(key) || isLeft(key)) return { ...state2, battle: { ...battle, actionCursor: (battle.actionCursor - 1 + actionCount) % actionCount } };
   if (isDown(key) || isRight(key)) return { ...state2, battle: { ...battle, actionCursor: (battle.actionCursor + 1) % actionCount } };
   if (key >= "1" && key <= "4") {
+    if (isTutorialActive(state2)) return addMessage(state2, "Tutorial: follow the highlighted battle prompt.");
     const idx = parseInt(key) - 1;
     const plan = planBattleAction(battle, "switch", player.party, player.items, { switchToIndex: idx });
     return startBattleSequence({ ...state2, battle: plan.initialBattle }, {
@@ -4993,14 +5308,44 @@ function handleBattle(state2, key) {
   if (key === "c" || key === "C") return executeBattleAction(state2, "capture");
   return state2;
 }
+function getTutorialBattleActionMessage(state2, action) {
+  if (!isTutorialActive(state2) || state2.tutorial.step !== "battle") return "";
+  const battleStep = state2.tutorial.battleStep;
+  if (battleStep === "skill" && action !== "skill") return "Tutorial: use Skill first.";
+  if (battleStep === "patch" && action !== "item") return "Tutorial: apply a Patch-Kit next.";
+  if (battleStep === "script" && action !== "script") return "Tutorial: run the sniff script next.";
+  if (battleStep === "link" && action !== "capture") return "Tutorial: choose Link once to see how capture works.";
+  if (battleStep === "finish" && !["flee", "skill", "capture"].includes(action)) return "Tutorial: flee or finish the battle.";
+  return "";
+}
+function advanceTutorialBattleStep(state2, action) {
+  if (!isTutorialActive(state2) || state2.tutorial.step !== "battle") return state2;
+  const battleStep = state2.tutorial.battleStep;
+  let nextBattleStep = battleStep;
+  if (battleStep === "skill" && action === "skill") nextBattleStep = "patch";
+  else if (battleStep === "patch" && action === "item") nextBattleStep = "script";
+  else if (battleStep === "script" && action === "script") nextBattleStep = "link";
+  else if (battleStep === "link" && action === "capture") nextBattleStep = "finish";
+  if (nextBattleStep === battleStep) return state2;
+  return {
+    ...state2,
+    tutorial: {
+      ...state2.tutorial,
+      battleStep: nextBattleStep
+    },
+    messages: []
+  };
+}
 function executeBattleAction(state2, action, options = {}) {
   const { battle, player } = state2;
   if (!battle) return state2;
+  const tutorialBlock = getTutorialBattleActionMessage(state2, action);
+  if (tutorialBlock) return addMessage(state2, tutorialBlock);
   if (action === "item") {
     return openInventory({ ...state2, menuCursor: 0 }, "battle", "battle");
   }
   const plan = planBattleAction(battle, action, player.party, player.items, options);
-  return startBattleSequence({
+  const sequenced = startBattleSequence({
     ...state2,
     battle: plan.initialBattle,
     player
@@ -5009,11 +5354,15 @@ function executeBattleAction(state2, action, options = {}) {
     stepIndex: 0,
     frame: 0
   });
+  return advanceTutorialBattleStep(sequenced, action);
 }
 function resolveBattleEnd(state2) {
   const { battle, player, previousScreen } = state2;
   if (!battle) return state2;
   const returnScreen = previousScreen ?? "overworld";
+  if (isTutorialActive(state2) && ["flee", "caught", "win"].includes(battle.result)) {
+    return completeTutorial(state2);
+  }
   if (battle.result === "flee") {
     return addMessage({ ...state2, screen: returnScreen, battle: void 0, battleAnimation: void 0 }, "You terminated the combat process.");
   }
@@ -5204,6 +5553,7 @@ function handlePartyWipe(state2) {
   };
 }
 function handleMenu(state2, key) {
+  if (isTutorialActive(state2)) return handleTutorialMenu(state2, key);
   const opts = getMenuOptions(state2);
   const optsCount = opts.length;
   if (isUp(key)) return { ...state2, menuCursor: (state2.menuCursor - 1 + optsCount) % optsCount };
@@ -5232,8 +5582,61 @@ function handleMenu(state2, key) {
   }
   return state2;
 }
+function handleTutorialMenu(state2, key) {
+  const opts = getMenuOptions(state2);
+  const optsCount = opts.length;
+  if (isUp(key)) return { ...state2, menuCursor: (state2.menuCursor - 1 + optsCount) % optsCount };
+  if (isDown(key)) return { ...state2, menuCursor: (state2.menuCursor + 1) % optsCount };
+  if (isCancel(key)) {
+    if (state2.tutorial.step === "open_party") return addMessage(state2, "Tutorial: select Exploits to continue.");
+    return {
+      ...state2,
+      screen: "overworld",
+      menuCursor: 0,
+      tutorial: state2.tutorial.step === "open_party" ? state2.tutorial : { ...state2.tutorial, step: "open_inventory" }
+    };
+  }
+  if (!isConfirm(key)) return state2;
+  const selected = opts[state2.menuCursor];
+  if (state2.tutorial.step === "open_party") {
+    if (selected !== "Exploits") {
+      return addMessage(state2, "Tutorial: choose Exploits first.");
+    }
+    return {
+      ...state2,
+      screen: "party_view",
+      menuCursor: 0,
+      previousScreen: "menu",
+      menuReturnScreen: "overworld",
+      tutorial: { ...state2.tutorial, step: "close_party" },
+      messages: []
+    };
+  }
+  if (selected === "Resume") {
+    return { ...state2, screen: "overworld", menuCursor: 0 };
+  }
+  if (selected === "Exploits") {
+    return { ...state2, screen: "party_view", menuCursor: 0, previousScreen: "menu", menuReturnScreen: "overworld" };
+  }
+  if (selected === "Patches") {
+    return { ...state2, screen: "inventory", menuCursor: 0, previousScreen: "menu", inventoryReturnScreen: "overworld", itemUseContext: "field" };
+  }
+  return state2;
+}
 function handlePartyView(state2, key) {
   const partySize = state2.player.party.length;
+  if (isTutorialActive(state2) && state2.tutorial.step === "close_party") {
+    if (isCancel(key) || isConfirm(key)) {
+      return {
+        ...state2,
+        screen: "overworld",
+        menuCursor: 0,
+        tutorial: { ...state2.tutorial, step: "open_inventory" },
+        messages: []
+      };
+    }
+    return state2;
+  }
   if (state2.reorderSourceIdx !== void 0) {
     if (isCancel(key) || key === "r" || key === "R") {
       return { ...state2, reorderSourceIdx: void 0 };
@@ -5344,6 +5747,23 @@ function handleStorageView(state2, key) {
 function handleInventory(state2, key) {
   const inventoryItems = Object.keys(ITEMS);
   const count = inventoryItems.length;
+  if (isTutorialActive(state2) && state2.tutorial.step === "close_inventory") {
+    if (isCancel(key) || isConfirm(key)) {
+      return {
+        ...state2,
+        screen: "overworld",
+        inventoryReturnScreen: void 0,
+        selectedItemId: void 0,
+        itemUseContext: void 0,
+        menuCursor: 0,
+        tutorial: { ...state2.tutorial, step: "start_battle" },
+        messages: []
+      };
+    }
+    if (isUp(key)) return { ...state2, menuCursor: (state2.menuCursor - 1 + count) % count };
+    if (isDown(key)) return { ...state2, menuCursor: (state2.menuCursor + 1) % count };
+    return state2;
+  }
   if (isUp(key)) return { ...state2, menuCursor: (state2.menuCursor - 1 + count) % count };
   if (isDown(key)) return { ...state2, menuCursor: (state2.menuCursor + 1) % count };
   if (isCancel(key)) {
@@ -5441,6 +5861,15 @@ function handleSecretUnlock(state2, key) {
   }
   return state2;
 }
+function handleTutorialComplete(state2, key) {
+  if (!isConfirm(key) && !isCancel(key)) return state2;
+  return {
+    ...createInitialState(),
+    screen: "title",
+    splashFrame: void 0,
+    menuCursor: 0
+  };
+}
 function handleKey(state2, key) {
   switch (state2.screen) {
     case "splash":
@@ -5487,6 +5916,8 @@ function handleKey(state2, key) {
       return handleGameOver(state2, key);
     case "secret_unlock":
       return handleSecretUnlock(state2, key);
+    case "tutorial_complete":
+      return handleTutorialComplete(state2, key);
     case "developer_options":
       return handleDeveloperOptions(state2, key);
     default:
@@ -5535,7 +5966,8 @@ function renderState(state2) {
       renderMenu(state2);
       break;
     case "inventory":
-      renderInventory(state2.player, state2.menuCursor);
+      if (isTutorialActive(state2)) renderTutorialInventory(state2);
+      else renderInventory(state2.player, state2.menuCursor);
       break;
     case "item_target":
       renderItemTarget(state2.player, state2.menuCursor, state2.selectedItemId);
@@ -5563,6 +5995,9 @@ function renderState(state2) {
       break;
     case "secret_unlock":
       renderSecretUnlock();
+      break;
+    case "tutorial_complete":
+      renderTutorialComplete();
       break;
     case "developer_options":
       renderDeveloperOptions(state2.player, state2.menuCursor);

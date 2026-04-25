@@ -1,6 +1,6 @@
 KERNEL BREACH VIRUS AND BOSS REFERENCE
 
-Current source of truth:
+Current Exploits available in the game:
 - app/runtime.mjs
 - Zone/species mapping: ZONE_CONFIGS
 - Dungeon mapping: DUNGEON_CONFIGS
@@ -126,7 +126,3 @@ ALL BOSSES IN PROGRESSION ORDER
 - Kernel-Driver -> Device Nodes -> Driver Channel
 - Da-Kernel -> Kernel Hub -> Root Directory
 
-SECRET/FINAL REWARD CREATURE
-- Sudo -S
-- Not a zone wild virus or regular boss
-- Unlocked from the final key flow

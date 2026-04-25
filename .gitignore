@@ -7,3 +7,4 @@ dist/
 setup.sh
 linuxpush.sh
 linuxrelease.sh
+build.sh

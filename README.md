@@ -10,49 +10,23 @@ Armed with sudo permissions and exploits of your own, you enter the world of the
 
 Explore the infected sectors of the disk, purge the polymorphic corruption spreading through them, and reclaim the system before it is lost forever!
 
-## Setup
+## Download And Play
 
-Requirements:
+Prebuilt packages are available from the Releases section of this repository.
 
-- Node.js 18 or newer
-- npm
-- macOS for macOS builds
-- Linux x64 for Linux `.deb` builds
+Use the package for your operating system:
 
-From the project root:
+- macOS: download the `.dmg` or release zip, move the app to Applications if desired, then launch Kernel Breach.
+- Windows: download the Windows release zip, extract it, then run the included `.exe` or installer.
+- Linux: download the `.deb` package, install it with your system package tools, then launch Kernel Breach from the applications menu.
 
-```bash
-npm install
-npm run start:app
-```
-
-## Build Packages
-
-Use the build wrapper from the project root:
-
-```bash
-./build.sh
-```
-
-Supported targets:
-
-```bash
-./build.sh all
-./build.sh mac
-./build.sh mac-arm64
-./build.sh mac-x64
-./build.sh win
-./build.sh linux
-./build.sh clean
-```
-
-Windows packages can be produced from this repo with Electron Builder, but Linux `.deb` packages should be built on Linux.
-
-The Linux package is intended to be installed with:
+For Linux `.deb` packages, the install command is:
 
 ```bash
 sudo dpkg -i kernelbreach_1.0.0_amd64.deb
 ```
+
+This public repository is intended for players who want to inspect the game or use the official release builds.
 
 ## Controls
 

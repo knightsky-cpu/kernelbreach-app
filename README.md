@@ -32,7 +32,21 @@ This public repository is intended for players who want to inspect the game or u
 
 Kernel Breach does not auto-update or access the internet from inside the game. Optional updater scripts are provided in `update_scripts/` for players who want a quicker way to pull the latest release asset.
 
-Run the updater for your platform from the game folder:
+Run the updater for your platform from any directory where you saved the script. On macOS or Linux, make the script executable first:
+
+```bash
+chmod +x update-mac-arm64.sh
+```
+
+Then run the appropriate updater:
+
+```bash
+./update-mac-arm64.sh
+./update-mac-x64.sh
+./update-linux64.sh
+```
+
+If you are running from a cloned copy of this repository, you can also run the scripts from `update_scripts/`:
 
 ```bash
 ./update_scripts/update-mac-arm64.sh
@@ -40,10 +54,10 @@ Run the updater for your platform from the game folder:
 ./update_scripts/update-linux64.sh
 ```
 
-On Windows, run PowerShell from the game folder:
+On Windows, run PowerShell from the directory where you saved the script:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\update_scripts\update-win64.ps1
+powershell -ExecutionPolicy Bypass -File .\update-win64.ps1
 ```
 
 The updater checks the latest GitHub release, exits if you are already current, or downloads and installs the latest direct release asset for your platform. Save files are stored separately from the app and are not removed by updating.

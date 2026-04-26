@@ -3428,7 +3428,7 @@ function renderOverworld(state2) {
     }
   }
   rows.push(layout.mode === "split" ? splitBottomBorder(layout) : bottomBorder());
-  rows.push(`${DIM}WASD/\u2191\u2193\u2190\u2192:Move  E:Enter  M:Menu  I:Inventory  Q:Quit${RESET}`);
+  rows.push(`${DIM}WASD/\u2191\u2193\u2190\u2192:Move  E:Enter  M:Menu  I:Inventory${RESET}`);
   renderFrame(rows);
 }
 function renderDungeon(state2) {
@@ -3474,7 +3474,7 @@ function renderDungeon(state2) {
     }
   }
   rows.push(layout.mode === "split" ? splitBottomBorder(layout) : bottomBorder());
-  rows.push(`${DIM}WASD/\u2191\u2193\u2190\u2192:Move  E:Exit(D tile)  M:Menu  Q:Quit${RESET}`);
+  rows.push(`${DIM}WASD/\u2191\u2193\u2190\u2192:Move  E:Exit(D tile)  M:Menu${RESET}`);
   renderFrame(rows);
 }
 function getBattleActionEntries(state2) {
@@ -3737,7 +3737,7 @@ function renderTitle(cursor, statusMessage = "") {
     "",
     dim(pad("\u2191\u2193: Select   Enter: Confirm", W, "center")),
     "",
-    dim(pad("v1.0.0  |  Node.js required  |  CTRL+C to quit", W, "center"))
+    dim(pad("v1.0.0", W, "center"))
   ];
   const totalContentHeight = titleBlock.length + optionLines.length + statusLines.length + footerLines.length;
   const topPadding = Math.max(1, Math.floor((terminalRows - totalContentHeight) / 2) - 1);

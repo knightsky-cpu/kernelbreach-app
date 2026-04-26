@@ -33,7 +33,6 @@ Controls:
 - I: inventory
 - Enter or Space: confirm
 - X or Escape: back
-- CTRL+C: quit
 
 Notes:
 - Save files are written to an OS-specific app data folder:

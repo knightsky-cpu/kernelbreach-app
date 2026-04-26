@@ -94,7 +94,6 @@ The updater checks the latest GitHub release, exits if you are already current, 
 - I: inventory
 - Enter or Space: confirm
 - X or Escape: back
-- CTRL+C: quit
 
 ## Notes
 

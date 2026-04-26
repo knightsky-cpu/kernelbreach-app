@@ -24,7 +24,7 @@ Explore the infected sectors of the disk, purge the polymorphic corruption sprea
 
 <img src="docs/screenshots/battle-screen.png" alt="Kernel Breach battle screen" width="700">
 
-### Dungeon
+### Breach Sites
 
 <img src="docs/screenshots/dungeon-screen.png" alt="Kernel Breach dungeon screen" width="700">
 

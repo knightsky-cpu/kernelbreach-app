@@ -1,6 +1,6 @@
 KERNEL BREACH
 
-Welcome to Kernel Breach, a hacker themed, Pokemon inspired, dungeon crawling creature capture RPG packed with security flavored mechanics, grindy progression, and just enough difficulty to be frustrating in the right way.
+Welcome to Kernel Breach, a hacker themed, Pokemon inspired, breach-site crawling creature capture RPG packed with security flavored mechanics, grindy progression, and just enough difficulty to be frustrating in the right way.
  
 Behind every corner are surprises, hostile viruses, and corrupted sectors waiting to be purged. You are the lead Security Architect, tasked with stopping a deadly polymorphic code that has breached the kernel and now threatens to wipe the entire system with sudo rm -rf /.
 
@@ -28,7 +28,7 @@ Updating:
 
 Controls:
 - WASD or arrow keys: move
-- E: interact / enter dungeon
+- E: interact / enter breach site
 - M: menu
 - I: inventory
 - Enter or Space: confirm

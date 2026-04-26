@@ -4068,7 +4068,7 @@ function renderDeveloperOptions(player, cursor) {
     `Audio Debug: ${player.audioDebug ? color("ON", GREEN) : color("OFF", RED)}`,
     `Verbose Debug: ${player.verboseDebug ? color("ON", GREEN) : color("OFF", RED)}`,
     "View Debug Log",
-    `Unlock All Dungeons: ${player.allDungeonsUnlocked ? color("ON", GREEN) : color("OFF", RED)}`,
+    `Unlock All Breach Sites: ${player.allDungeonsUnlocked ? color("ON", GREEN) : color("OFF", RED)}`,
     `No Encounter: ${player.noEncounters ? color("ON", GREEN) : color("OFF", RED)}`,
     "Instant Patch (Heal All)",
     "Add 5000 Credits",
@@ -4109,7 +4109,7 @@ function handleDeveloperOptions(state2, key) {
     } else if (state2.menuCursor === 3) {
       const next = !state2.player.allDungeonsUnlocked;
       s = { ...state2, player: { ...state2.player, allDungeonsUnlocked: next } };
-      s = addMessage(s, `Cheat: All Dungeons ${next ? "Unlocked" : "Gated"}`);
+      s = addMessage(s, `Cheat: All Breach Sites ${next ? "Unlocked" : "Gated"}`);
     } else if (state2.menuCursor === 4) {
       const next = !state2.player.noEncounters;
       s = { ...state2, player: { ...state2.player, noEncounters: next } };
@@ -4939,7 +4939,7 @@ function enterDungeon(state2) {
   if (PREREQS[zone] && !player.allDungeonsUnlocked) {
     const req = PREREQS[zone];
     if (!player.defeatedBosses.includes(req.species)) {
-      return addMessage(state2, `ACCESS DENIED: Purge ${req.name} at ${req.dungeon} first.`);
+      return addMessage(state2, `ACCESS DENIED: Purge ${req.name} at breach site ${req.dungeon} first.`);
     }
     if (zone === "central") {
       const allBosses = BOSS_SEQUENCE.filter((boss) => boss.zone !== "central").map((boss) => boss.species);
@@ -5623,7 +5623,7 @@ function handleBattleWin(state2, returnScreen) {
     if (!player.defeatedBosses.includes(bossSpecies)) {
       const progress = applyBossProgress(s.player, bossSpecies);
       s = { ...s, player: progress.player };
-      s = addMessage(s, `Security Daemon purged. ${ZONE_CONFIGS[state2.dungeon?.zone ?? player.currentZone].dungeonName} restored.`);
+      s = addMessage(s, `Security Daemon purged. Breach site ${ZONE_CONFIGS[state2.dungeon?.zone ?? player.currentZone].dungeonName} restored.`);
       if (progress.keyPiece) {
         s = addMessage(s, `Recovered key piece ${progress.keyPiece.piece} from ${progress.keyPiece.bossName}.`);
       }
@@ -5670,7 +5670,7 @@ function handleCatch(state2, caught, returnScreen) {
     const progress = applyBossProgress(s.player, caught.species);
     s = { ...s, player: progress.player };
     if (s.dungeon) s = { ...s, dungeon: { ...s.dungeon, bossDefeated: true } };
-    s = addMessage(s, `Security Daemon re-linked. Dungeon restored.`);
+    s = addMessage(s, `Security Daemon re-linked. Breach site restored.`);
     if (progress.keyPiece) {
       s = addMessage(s, `Recovered key piece ${progress.keyPiece.piece} from ${progress.keyPiece.bossName}.`);
     }

@@ -770,7 +770,7 @@ var MAGMA_KEEP = {
   bossPos: { x: 22, y: 1 },
   map: [
     r2("#########################"),
-    // 0 boss at far right
+    // 0 
     r2("#......................B#"),
     // 1
     r2("#~~######################"),
@@ -781,8 +781,8 @@ var MAGMA_KEEP = {
     // 4
     r2("###.~~~~~~~~~~~~.#.....##"),
     // 5
-    r2("###.~~~~*~~~~*~~.#.....##"),
-    // 6 * lava obstacles
+    r2("###.~~~~~~~~~~~~.#.....##"),
+    // 6 
     r2("###.~~~~~~~~~~~~.......##"),
     // 7
     r2("#.#.~~~~~~~~~~~~.########"),
@@ -3312,6 +3312,17 @@ function getTutorialPrompt(state2) {
   }
   return "Tutorial: Follow the prompt to continue.";
 }
+function getOverworldDisplayTile(ch, x, y, state2) {
+  if (ch !== "~") return ch;
+  const waveFrame = Math.floor((state2.envFrame ?? 0) / 5);
+  return STATIC_FIELD_GLYPHS[(waveFrame + x + y) % STATIC_FIELD_GLYPHS.length];
+}
+function getDungeonDisplayTile(ch, zone, x, y, state2) {
+  if (ch !== "~") return ch;
+  const glyphs = DUNGEON_WAVE_GLYPHS[zone] ?? STATIC_FIELD_GLYPHS;
+  const waveFrame = Math.floor((state2.envFrame ?? 0) / 5);
+  return glyphs[(waveFrame + x + y) % glyphs.length];
+}
 function renderOverworld(state2) {
   const { player, messages } = state2;
   const map = ZONE_MAPS[player.currentZone];
@@ -3336,7 +3347,7 @@ function renderOverworld(state2) {
         const ch = rawRow[x];
         const isHiddenScriptTile = !hiddenRecovered && hiddenScript && x === hiddenScript.x && y === hiddenScript.y;
         const c = isHiddenScriptTile ? BRIGHT_MAGENTA : TILE_COLORS[ch] ?? ZONE_GROUND_COLORS[player.currentZone];
-        displayRow += renderScaledCell(ch, c, layout.tileScaleX);
+        displayRow += renderScaledCell(getOverworldDisplayTile(ch, x, y, state2), c, layout.tileScaleX);
       }
     }
     const padNeeded = layout.mapPanelW - layout.visibleMapCols * layout.tileScaleX;
@@ -3383,7 +3394,7 @@ function renderDungeon(state2) {
       } else {
         const ch = rawRow?.[x] ?? "#";
         const c = colors[ch] ?? GREY;
-        displayRow += renderScaledCell(ch, c, layout.tileScaleX);
+        displayRow += renderScaledCell(getDungeonDisplayTile(ch, dungeon.zone, x, y, state2), c, layout.tileScaleX);
       }
     }
     const padNeeded = layout.mapPanelW - layout.visibleMapCols * layout.tileScaleX;
@@ -4325,6 +4336,20 @@ var DUNGEON_ENCOUNTER_RATE = 0.3;
 var SPLASH_FRAMES = 28;
 var LAUNCH_ANIMATION_FRAMES = 112;
 var LAUNCH_SKIP_FRAMES = 20;
+var STATIC_FIELD_GLYPHS = ["~", "-", "~", "-"];
+var DUNGEON_WAVE_GLYPHS = {
+  central: ["~", "-", "~", "-"],
+  north: ["=", "-", "=", "-"],
+  south: ["~", "*", "~", "*"],
+  east: ["~", "-", "~", "-"],
+  cache: ["~", ".", "~", "."],
+  west: ["~", "=", "~", "="],
+  sandbox: ["~", "!", "~", "!"],
+  home: ["~", "-", "~", "-"],
+  proc: ["~", ":", "~", ":"],
+  tmp: ["~", ".", "~", "."],
+  dev: ["~", "=", "~", "="]
+};
 function createInitialState() {
   return {
     screen: "splash",
@@ -5051,6 +5076,9 @@ function advanceAnimations(state2) {
       return enterOverworldAfterLaunch(state2);
     }
     return { ...state2, launchFrame: nextFrame };
+  }
+  if (state2.screen === "overworld" || state2.screen === "dungeon") {
+    return { ...state2, envFrame: ((state2.envFrame ?? 0) + 1) % 1e6 };
   }
   const anim = state2.battleAnimation;
   if (!anim) return state2;
@@ -6150,7 +6178,7 @@ function commitState(next) {
   scheduleAnimationTick();
 }
 function scheduleAnimationTick() {
-  if (animationTimer || !state.battleAnimation && state.screen !== "splash" && state.screen !== "launch_animation") return;
+  if (animationTimer || !state.battleAnimation && state.screen !== "splash" && state.screen !== "launch_animation" && state.screen !== "overworld" && state.screen !== "dungeon") return;
   animationTimer = setTimeout(() => {
     animationTimer = void 0;
     const next = advanceAnimations(state);

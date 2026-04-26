@@ -32,6 +32,8 @@ This public repository is intended for players who want to inspect the game or u
 
 Kernel Breach does not auto-update or access the internet from inside the game. Optional updater scripts are provided in `update_scripts/` for players who want a quicker way to pull the latest release asset.
 
+Release zip packages also include the updater script for that platform, so new players who download a zip already have the update workflow available in the game folder.
+
 Run the updater for your platform from any directory where you saved the script. On macOS or Linux, make the script executable first:
 
 ```bash

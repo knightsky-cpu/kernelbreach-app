@@ -16,6 +16,7 @@ How to run:
 Updating:
 - Kernel Breach does not auto-update or access the internet from inside the game.
 - Optional updater scripts are available in the update_scripts folder of the public repository.
+- Release zip packages also include the updater script for that platform, so new players who download a zip already have the update workflow available in the game folder.
 - The scripts can be run from any directory where you saved them, such as ~/Downloads.
 - On macOS or Linux, run chmod +x on the script before launching it.
 - macOS Apple Silicon: ./update-mac-arm64.sh

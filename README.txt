@@ -13,6 +13,16 @@ How to run:
 - Windows: open the release zip, extract it, then run the included .exe or installer.
 - Linux: install the .deb package with sudo dpkg -i kernelbreach_1.0.0_amd64.deb, then launch Kernel Breach from the applications menu.
 
+Updating:
+- Kernel Breach does not auto-update or access the internet from inside the game.
+- Optional updater scripts are available in the update_scripts folder of the public repository.
+- macOS Apple Silicon: ./update_scripts/update-mac-arm64.sh
+- macOS Intel: ./update_scripts/update-mac-x64.sh
+- Linux x64: ./update_scripts/update-linux64.sh
+- Windows x64: powershell -ExecutionPolicy Bypass -File .\update_scripts\update-win64.ps1
+- The updater checks the latest GitHub release and exits if you are already current.
+- Save files are stored separately from the app and are not removed by updating.
+
 Controls:
 - WASD or arrow keys: move
 - E: interact / enter dungeon

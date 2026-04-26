@@ -113,7 +113,7 @@ var ZONE_CONFIGS = {
   north: {
     name: "north",
     displayName: "Cooling Array",
-    wildSpecies: ["Ice-Pack", "Shell-Snail", "Phantom-Thread"],
+    wildSpecies: ["Ice-Packet", "Shell-Snail", "Phantom-Thread"],
     bossSpecies: "Wifi-Owl",
     dungeonName: "Cryo-Stack",
     dungeonPos: { x: 4, y: 2 },
@@ -129,7 +129,7 @@ var ZONE_CONFIGS = {
   south: {
     name: "south",
     displayName: "Thermal Exhaust",
-    wildSpecies: ["Cache-Cat", "Spike-Code", "Macro-Shroom"],
+    wildSpecies: ["Cache-Cat", "Spike-Code", "Micro-Mycelium"],
     bossSpecies: "Firewall-Drake",
     dungeonName: "Overclock Core",
     dungeonPos: { x: 31, y: 22 },
@@ -145,8 +145,8 @@ var ZONE_CONFIGS = {
   east: {
     name: "east",
     displayName: "Legacy Archives",
-    wildSpecies: ["Shell-Turtle", "Capy-Buffer", "RAM-Spike"],
-    bossSpecies: "Honk-Process",
+    wildSpecies: ["Shell-Turtle", "CPU-Buffer", "RAM-Spike"],
+    bossSpecies: "Con-Proc",
     dungeonName: "Bit-Rot Pit",
     dungeonPos: { x: 34, y: 5 },
     healPos: { x: 10, y: 8 },
@@ -177,7 +177,7 @@ var ZONE_CONFIGS = {
   west: {
     name: "west",
     displayName: "Logic Trench",
-    wildSpecies: ["Socket-Octo", "Packet-Eel", "Port-Wyrm"],
+    wildSpecies: ["Socket-Squid", "Packet-Eel", "Port-Wyrm"],
     bossSpecies: "Bot-Node",
     dungeonName: "Deep Buffer",
     dungeonPos: { x: 31, y: 19 },
@@ -285,7 +285,7 @@ var TOTAL_BOSSES = 11;
 var BOSS_SEQUENCE = [
   { species: "Wifi-Owl", bossName: "Cryo-Compiler", zone: "north", zoneName: "Cooling Array", breachSite: "Cryo-Stack", log: "Cooling Array restored. Frozen processes resume their ordained motion." },
   { species: "Firewall-Drake", bossName: "GPU-Inferno", zone: "south", zoneName: "Thermal Exhaust", breachSite: "Overclock Core", log: "Thermal Exhaust stabilized. The heat storm recedes from the core rails." },
-  { species: "Honk-Process", bossName: "Legacy Protocol", zone: "east", zoneName: "Legacy Archives", breachSite: "Bit-Rot Pit", log: "Legacy Archives preserved. The old records endure the purge." },
+  { species: "Con-Proc", bossName: "Legacy Protocol", zone: "east", zoneName: "Legacy Archives", breachSite: "Bit-Rot Pit", log: "Legacy Archives preserved. The old records endure the purge." },
   { species: "Spy-Ware", bossName: "Spy-Ware", zone: "cache", zoneName: "The Deep Cache", breachSite: "Defrag Chamber", log: "The Deep Cache sealed. Hidden watchers lose their stolen sight." },
   { species: "Bot-Node", bossName: "Abyssal Kernel", zone: "west", zoneName: "Logic Trench", breachSite: "Deep Buffer", log: "Logic Trench reclaimed. Intercepted packets return to their true path." },
   { species: "Ransom-Ware", bossName: "Ransom-Ware", zone: "sandbox", zoneName: "Isolated Sandbox", breachSite: "Quarantine Vault", log: "Isolated Sandbox purified. Quarantined horrors can no longer spread." },
@@ -719,7 +719,7 @@ var CAVERN_OF_ROOTS = {
 };
 var CRYSTAL_SPIRE = {
   name: "Cryo-Stack",
-  encounterSpecies: ["Ice-Pack", "Shell-Snail", "Phantom-Thread"],
+  encounterSpecies: ["Ice-Packet", "Shell-Snail", "Phantom-Thread"],
   bossLevel: 10,
   startPos: { x: 12, y: 17 },
   bossPos: { x: 12, y: 1 },
@@ -764,7 +764,7 @@ var CRYSTAL_SPIRE = {
 };
 var MAGMA_KEEP = {
   name: "Overclock Core",
-  encounterSpecies: ["Cache-Cat", "Spike-Code", "Macro-Shroom"],
+  encounterSpecies: ["Cache-Cat", "Spike-Code", "Micro-Mycelium"],
   bossLevel: 12,
   startPos: { x: 1, y: 16 },
   bossPos: { x: 22, y: 1 },
@@ -809,7 +809,7 @@ var MAGMA_KEEP = {
 };
 var GNARLED_DEPTHS = {
   name: "Bit-Rot Pit",
-  encounterSpecies: ["Shell-Turtle", "Capy-Buffer", "RAM-Spike"],
+  encounterSpecies: ["Shell-Turtle", "CPU-Buffer", "RAM-Spike"],
   bossLevel: 14,
   startPos: { x: 12, y: 17 },
   bossPos: { x: 4, y: 2 },
@@ -854,7 +854,7 @@ var GNARLED_DEPTHS = {
 };
 var ABYSSAL_LAIR = {
   name: "Deep Buffer",
-  encounterSpecies: ["Socket-Octo", "Packet-Eel", "Port-Wyrm"],
+  encounterSpecies: ["Socket-Squid", "Packet-Eel", "Port-Wyrm"],
   bossLevel: 18,
   startPos: { x: 11, y: 17 },
   bossPos: { x: 11, y: 1 },
@@ -1101,20 +1101,20 @@ var SPECIES_NAMES = {
   "Bit-Blob": "Bit-Blob",
   "Sync-Hare": "Sync-Hare",
   "Da-Kernel": "Da-Kernel",
-  "Ice-Pack": "Ice-Pack",
+  "Ice-Packet": "Ice-Packet",
   "Shell-Snail": "Shell-Snail",
   "Phantom-Thread": "Phantom-Thread",
   "Cache-Cat": "Cache-Cat",
   "Spike-Code": "Spike-Code",
-  "Macro-Shroom": "Macro-Shroom",
+  "Micro-Mycelium": "Micro-Mycelium",
   "Shell-Turtle": "Shell-Turtle",
-  "Capy-Buffer": "Capy-Buffer",
+  "CPU-Buffer": "CPU-Buffer",
   "RAM-Spike": "RAM-Spike",
   "Packet-Eel": "Packet-Eel",
   "Port-Wyrm": "Port-Wyrm",
-  "Socket-Octo": "Socket-Octo",
+  "Socket-Squid": "Socket-Squid",
   "Bot-Node": "Bot-Node",
-  "Honk-Process": "Honk-Process",
+  "Con-Proc": "Con-Proc",
   "Wifi-Owl": "Wifi-Owl",
   "Firewall-Drake": "Firewall-Drake",
   "Electrobyte": "Electrobyte",
@@ -1141,6 +1141,13 @@ SPECIES_NAMES["IO-Leech"] = "IO-Leech";
 SPECIES_NAMES["Init-Reaper"] = "Init-Reaper";
 SPECIES_NAMES["Shred-Null"] = "Shred-Null";
 SPECIES_NAMES["Kernel-Driver"] = "Kernel-Driver";
+var SPECIES_RENAMES = {
+  "Ice-Pack": "Ice-Packet",
+  "Macro-Shroom": "Micro-Mycelium",
+  "Socket-Octo": "Socket-Squid",
+  "Honk-Process": "Con-Proc",
+  "Capy-Buffer": "CPU-Buffer"
+};
 var RARITY_BASE_STAT = {
   common: 1,
   uncommon: 2,
@@ -1190,11 +1197,12 @@ function rollStarterRarity(rng) {
   return "common";
 }
 function getSpeciesSkills(species) {
+  species = canonicalSpeciesName(species);
   const common = ["Byte", "Exploit", "Prompt Injection"];
   const bossSkills = {
     "Wifi-Owl": ["Byte", "Cold-Boot", "Prompt Injection"],
     "Firewall-Drake": ["Byte", "Packet Burn", "Exploit"],
-    "Honk-Process": ["Byte", "Deprecation Warning", "Sudo Swipe"],
+    "Con-Proc": ["Byte", "Deprecation Warning", "Sudo Swipe"],
     "Spy-Ware": ["Byte", "Data Leak", "Prompt Injection"],
     "Bot-Node": ["Byte", "Logic Bomb", "Exploit"],
     "Ransom-Ware": ["Byte", "Encryption Lock", "Sudo Swipe"],
@@ -1206,6 +1214,20 @@ function getSpeciesSkills(species) {
     "Sudo -S": ["Byte", "Kernel Panic", "Privilege Escalation"]
   };
   return bossSkills[species] ?? common;
+}
+function canonicalSpeciesName(species) {
+  return SPECIES_RENAMES[species] ?? species;
+}
+function normalizeCreatureSpecies(creature) {
+  if (!creature) return creature;
+  const species = canonicalSpeciesName(creature.species);
+  if (species === creature.species) return creature;
+  return {
+    ...creature,
+    species,
+    nickname: creature.nickname === creature.species ? species : creature.nickname,
+    skills: getSpeciesSkills(species)
+  };
 }
 function rollWildCreature(zone, species, targetLevel) {
   const seed = fnv1a(`${species}-${Date.now()}-${Math.random()}`);
@@ -1366,6 +1388,7 @@ function getKeyPieceEntries(player) {
   return getKeyPieces(player).map((piece) => `[boss: ${piece.bossName}]-${piece.piece}`);
 }
 function normalizeFinalRewardCreature(creature) {
+  creature = normalizeCreatureSpecies(creature);
   if (!creature) return creature;
   if (creature.species === "Sudo -S") return creature;
   if (creature.nickname !== "Ring 0") return creature;
@@ -1378,7 +1401,7 @@ function normalizeFinalRewardCreature(creature) {
 }
 function normalizePlayerProgress(player) {
   const finalSecretKey = normalizeFinalSecretKey(player.finalSecretKey);
-  const defeatedBosses = player.defeatedBosses ?? [];
+  const defeatedBosses = Array.from(new Set((player.defeatedBosses ?? []).map(canonicalSpeciesName)));
   const hiddenScriptsByZone = { ...buildZoneScriptLocations(finalSecretKey), ...(player.hiddenScriptsByZone ?? {}) };
   const discoveredScripts = Array.isArray(player.discoveredScripts) ? [...player.discoveredScripts] : [];
   let recoveredScriptZones = Array.isArray(player.recoveredScriptZones) ? [...player.recoveredScriptZones] : [];
@@ -1388,7 +1411,15 @@ function normalizePlayerProgress(player) {
       recoveredScriptZones.push(zone);
     }
   }
-  let keyPieces = Array.isArray(player.keyPieces) ? [...player.keyPieces] : [];
+  let keyPieces = Array.isArray(player.keyPieces) ? player.keyPieces.map((piece) => {
+    const bossSpecies = canonicalSpeciesName(piece.bossSpecies);
+    const bossMeta = BOSS_SEQUENCE.find((boss) => boss.species === bossSpecies);
+    return {
+      ...piece,
+      bossSpecies,
+      bossName: bossMeta?.bossName ?? piece.bossName
+    };
+  }) : [];
   keyPieces = keyPieces.filter((piece) => FINAL_KEY_BOSSES.some((boss) => boss.species === piece.bossSpecies) && piece.piece);
   for (const boss of FINAL_KEY_BOSSES) {
     if (!defeatedBosses.includes(boss.species)) continue;
@@ -1404,6 +1435,7 @@ function normalizePlayerProgress(player) {
     ...player,
     party: (player.party ?? []).map(normalizeFinalRewardCreature),
     storage: (player.storage ?? []).map(normalizeFinalRewardCreature),
+    defeatedBosses,
     targetLog: player.targetLog ?? [],
     discoveredScripts,
     hiddenScriptsByZone,
@@ -1455,7 +1487,7 @@ function getBossName(species) {
     "Da-Kernel": "Root Admin",
     "Wifi-Owl": "Cryo-Compiler",
     "Firewall-Drake": "GPU-Inferno",
-    "Honk-Process": "Legacy Protocol",
+    "Con-Proc": "Legacy Protocol",
     "Bot-Node": "Abyssal Kernel",
     "Eskalate": "Eskalate",
     "Ransom-Ware": "Ransom-Ware",
@@ -2649,237 +2681,262 @@ var audioManager = createAudioManager();
 // src/sprites.ts
 var BODIES = {
   "Data-Duck": [
-    ["            ", "    __      ", "  <({E} )___  ", "   (  ._>   ", "    `--\xB4    "],
-    ["            ", "    __      ", "  <({E} )___  ", "   (  ._>   ", "    `--\xB4~   "],
-    ["            ", "    __      ", "  <({E} )___  ", "   (  .__>  ", "    `--\xB4    "]
-  ],
-  "Honk-Process": [
-    ["            ", "     ({E}>    ", "     ||     ", "   _(__)_   ", "    ^^^^    "],
-    ["            ", "    ({E}>     ", "     ||     ", "   _(__)_   ", "    ^^^^    "],
-    ["            ", "     ({E}>>   ", "     ||     ", "   _(__)_   ", "    ^^^^    "]
+    ["    __      ", "  <(o )__  ", "   ((___>>   ", "    `---´    "],
+    ["    __      ", "  <(o )__  ", "   ((___>>   ", "    `---´    "],
+    ["    __      ", "  <(o )__  ", "   ((___>>   ", "    `---´    "]
   ],
   "Bit-Blob": [
-    ["            ", "   .----.   ", "  ( {E}  {E} )  ", "  (      )  ", "   `----\xB4   "],
-    ["            ", "  .------.  ", " (  {E}  {E}  ) ", " (        ) ", "  `------\xB4  "],
-    ["            ", "    .--.    ", "   ({E}  {E})   ", "   (    )   ", "    `--\xB4    "]
-  ],
-  "Cache-Cat": [
-    ["            ", "   /\\_/\\    ", "  ( {E}   {E})  ", "  (  \u03C9  )   ", '  (")_(")   '],
-    ["            ", "   /\\_/\\    ", "  ( {E}   {E})  ", "  (  \u03C9  )   ", '  (")_(")~  '],
-    ["            ", "   /\\-/\\    ", "  ( {E}   {E})  ", "  (  \u03C9  )   ", '  (")_(")   ']
-  ],
-  "Firewall-Drake": [
-    ["            ", "  /^\\  /^\\  ", " <  {E}  {E}  > ", " (   ~~   ) ", "  `-vvvv-\xB4  "],
-    ["            ", "  /^\\  /^\\  ", " <  {E}  {E}  > ", " (        ) ", "  `-vvvv-\xB4  "],
-    ["   ~    ~   ", "  /^\\  /^\\  ", " <  {E}  {E}  > ", " (   ~~   ) ", "  `-vvvv-\xB4  "]
-  ],
-  "Socket-Octo": [
-    ["            ", "   .----.   ", "  ( {E}  {E} )  ", "  (______)  ", "  /\\/\\/\\/\\  "],
-    ["            ", "   .----.   ", "  ( {E}  {E} )  ", "  (______)  ", "  \\/\\/\\/\\/  "],
-    ["     o      ", "   .----.   ", "  ( {E}  {E} )  ", "  (______)  ", "  /\\/\\/\\/\\  "]
-  ],
-  "Packet-Eel": [
-    ["            ", "  <_{E}__{E}====", "    \\\\~~~~~~~", "            ", "            "],
-    ["            ", "==={E}__{E}__>  ", "  ~~~~~~~//  ", "            ", "            "],
-    ["     ~      ", "  <_{E}__{E}====", "    \\\\~~~~~~~", "            ", "            "]
-  ],
-  "Port-Wyrm": [
-    ["            ", "  <{E}===={E}===", "   \\\\_8080~~", "            ", "            "],
-    ["            ", "==={E}===={E}>  ", "  ~~PORT_// ", "            ", "            "],
-    ["     :      ", "  <{E}===={E}===", "   \\\\_8080~~", "            ", "            "]
-  ],
-  "Wifi-Owl": [
-    ["            ", "   /\\  /\\   ", "  (({E})({E}))  ", "  (  ><  )  ", "   `----\xB4   "],
-    ["            ", "   /\\  /\\   ", "  (({E})({E}))  ", "  (  ><  )  ", "   .----.   "],
-    ["            ", "   /\\  /\\   ", "  (({E})(- ))  ", "  (  ><  )  ", "   `----\xB4   "]
-  ],
-  "Ice-Pack": [
-    ["            ", "  .---.     ", "  ({E}>{E})     ", " /(   )\\    ", "  `---\xB4     "],
-    ["            ", "  .---.     ", "  ({E}>{E})     ", " |(   )|    ", "  `---\xB4     "],
-    ["  .---.     ", "  ({E}>{E})     ", " /(   )\\    ", "  `---\xB4     ", "   ~ ~      "]
-  ],
-  "Shell-Turtle": [
-    ["            ", "   _,--._   ", "  ( {E}  {E} )  ", " /[______]\\ ", "  ``    ``  "],
-    ["            ", "   _,--._   ", "  ( {E}  {E} )  ", " /[______]\\ ", "   ``  ``   "],
-    ["            ", "   _,--._   ", "  ( {E}  {E} )  ", " /[======]\\ ", "  ``    ``  "]
-  ],
-  "Shell-Snail": [
-    ["            ", " {E}    .--.  ", "  \\  ( @ )  ", "   \\_`--\xB4   ", "  ~~~~~~~   "],
-    ["            ", "  {E}   .--.  ", "  |  ( @ )  ", "   \\_`--\xB4   ", "  ~~~~~~~   "],
-    ["            ", " {E}    .--.  ", "  \\  ( @  ) ", "   \\_`--\xB4   ", "   ~~~~~~   "]
-  ],
-  "Phantom-Thread": [
-    ["            ", "   .----.   ", "  / {E}  {E} \\  ", "  |      |  ", "  ~`~``~`~  "],
-    ["            ", "   .----.   ", "  / {E}  {E} \\  ", "  |      |  ", "  `~`~~`~`  "],
-    ["    ~  ~    ", "   .----.   ", "  / {E}  {E} \\  ", "  |      |  ", "  ~~`~~`~~  "]
-  ],
-  "RAM-Spike": [
-    ["            ", "}~(______)~{", "}~({E} .. {E})~{", "  ( .--. )  ", "  (_/  \\_)  "],
-    ["            ", "~}(______){~", "~}({E} .. {E}){~", "  ( .--. )  ", "  (_/  \\_)  "],
-    ["            ", "}~(______)~{", "}~({E} .. {E})~{", "  (  --  )  ", "  ~_/  \\_~  "]
-  ],
-  "Capy-Buffer": [
-    ["            ", "  n______n  ", " ( {E}    {E} ) ", " (   oo   ) ", "  `------\xB4  "],
-    ["            ", "  n______n  ", " ( {E}    {E} ) ", " (   Oo   ) ", "  `------\xB4  "],
-    ["    ~  ~    ", "  u______n  ", " ( {E}    {E} ) ", " (   oo   ) ", "  `------\xB4  "]
-  ],
-  "Spike-Code": [
-    ["            ", " n  ____  n ", " | |{E}  {E}| | ", " |_|    |_| ", "   |    |   "],
-    ["            ", "    ____    ", " n |{E}  {E}| n ", " |_|    |_| ", "   |    |   "],
-    [" n        n ", " |  ____  | ", " | |{E}  {E}| | ", " |_|    |_| ", "   |    |   "]
-  ],
-  "Bot-Node": [
-    ["            ", "   .[||].   ", "  [ {E}  {E} ]  ", "  [ ==== ]  ", "  `------\xB4  "],
-    ["            ", "   .[||].   ", "  [ {E}  {E} ]  ", "  [ -==- ]  ", "  `------\xB4  "],
-    ["     *      ", "   .[||].   ", "  [ {E}  {E} ]  ", "  [ ==== ]  ", "  `------\xB4  "]
+    ["   .----.   ", "  {<o--o>}  ", "  { -<>- }  ", "   `----´   "],
+    ["   .----.   ", "  {<o--o>}  ", "  { -<>- }  ", "   `----´   "],
+    ["   .----.   ", "  {<o--o>}  ", "  { -<>- }  ", "   `----´   "]
   ],
   "Sync-Hare": [
-    ["            ", "   (\\__/)   ", "  ( {E}  {E} )  ", " =(  ..  )= ", '  (")__(")  '],
-    ["            ", "   (|__/)   ", "  ( {E}  {E} )  ", " =(  ..  )= ", '  (")__(")  '],
-    ["            ", "   (\\__/)   ", "  ( {E}  {E} )  ", " =( .  . )= ", '  (")__(")  ']
-  ],
-  "Macro-Shroom": [
-    ["            ", " .-o-OO-o-. ", "(__________)", "   |{E}  {E}|   ", "   |____|   "],
-    ["            ", " .-O-oo-O-. ", "(__________)", "   |{E}  {E}|   ", "   |____|   "],
-    ["   . o  .   ", " .-o-OO-o-. ", "(__________)", "   |{E}  {E}|   ", "   |____|   "]
+    ["   (\\__/)   ", " =( o  o )=  ", "  (  ++  ) ", "  (\")__(\")  "],
+    ["   (\\__/)   ", " =( o  o )=  ", "  (  ++  ) ", "  (\")__(\")  "],
+    ["   (\\__/)   ", " =( o  o )=  ", "  (  ++  ) ", "  (\")__(\")  "]
   ],
   "Da-Kernel": [
-    ["            ", "  /\\    /\\  ", " ( {E}    {E} ) ", " (   ..   ) ", "  `------\xB4  "],
-    ["            ", "  /\\    /|  ", " ( {E}    {E} ) ", " (   ..   ) ", "  `------\xB4  "],
-    ["            ", "  /\\    /\\  ", " ( {E}    {E} ) ", " (   ..   ) ", "  `------\xB4~ "]
+    ["  /\\^--^/\\  ", "  \\ o  o / ", "  /  ..  \\ ", "  \\------/  "],
+    ["  /\\^--^/\\  ", "  \\ o  o / ", "  /  ..  \\ ", "  \\------/  "],
+    ["  /\\^--^/\\  ", "  \\ o  o / ", "  /  ..  \\ ", "  \\------/  "]
+  ],
+  "Ice-Packet": [
+    ["            ", "  .-^-.     ", "  (o>o)  ", " /( _ )\\    ", "  </ \\>     "],
+    ["            ", "  .-^-.     ", "  (o>o)  ", " /( _ )\\    ", "  </ \\>     "],
+    ["            ", "  .-^-.     ", "  (o>o)  ", " /( _ )\\    ", "  </ \\>     "]
+  ],
+  "Shell-Snail": [
+    ["oo'   ,--,  ", "  \\  ( @ )  ", "   \\_`--´   ", "  ~~~~~~~   "],
+    ["oo'   ,--,  ", "  \\  ( @ )  ", "   \\_`--´   ", "  ~~~~~~~   "],
+    ["oo'   ,--,  ", "  \\  ( @ )  ", "   \\_`--´   ", "  ~~~~~~~   "]
+  ],
+  "Phantom-Thread": [
+    ["            ", "   .-^^-.   ", "  / o  o \\  ", "  |      |  ", "  ~\\~^^~/~  "],
+    ["            ", "   .-^^-.   ", "  / o  o \\  ", "  |      |  ", "  ~\\~^^~/~  "],
+    ["            ", "   .-^^-.   ", "  / o  o \\  ", "  |      |  ", "  ~\\~^^~/~  "]
+  ],
+  "Cache-Cat": [
+    ["   /\\_/\\    ", "  ( o o )  ", "  (  ω  )   ", "  (\")_(\")   "],
+    ["   /\\_/\\    ", "  ( o o )  ", "  (  ω  )   ", "  (\")_(\")   "],
+    ["   /\\_/\\    ", "  ( o o )  ", "  (  ω  )   ", "  (\")_(\")   "]
+  ],
+  "Spike-Code": [
+    ["            ", " ^  ____  ^ ", " | |o  o| | ", " |_|    |_| ", "   /____\\   "],
+    ["            ", " ^  ____  ^ ", " | |o  o| | ", " |_|    |_| ", "   /____\\   "],
+    ["            ", " ^  ____  ^ ", " | |o  o| | ", " |_|    |_| ", "   /____\\   "]
+  ],
+  "Micro-Mycelium": [
+    ["            ", " .-o-OO-o-. ", "(__________)", "   |0><0|   ", "   |____|   "],
+    ["            ", " .-o-OO-o-. ", "(__________)", "   |0><0|   ", "   |____|   "],
+    ["            ", " .-o-OO-o-. ", "(__________)", "   |0><0|   ", "   |____|   "]
+  ],
+  "Shell-Turtle": [
+    ["   _,--._ __", "  (      )(0)  ", "  [_/--\\_] ", "  ``    ``  "],
+    ["   _,--._ __", "  (      )(0)  ", "  [_/--\\_] ", "  ``    ``  "],
+    ["   _,--._ __", "  (      )(0)  ", "  [_/--\\_] ", "  ``    ``  "]
+  ],
+  "CPU-Buffer": [
+    ["            ", "  #_|\\/|_#  ", "  \\ o  o / ", "  /  ==  \\ ", "  \\-|/\\|-/  "],
+    ["            ", "  #_|\\/|_#  ", "  \\ o  o / ", "  /  ==  \\ ", "  \\-|/\\|-/  "],
+    ["            ", "  #_|\\/|_#  ", "  \\ o  o / ", "  /  ==  \\ ", "  \\-|/\\|-/  "]
+  ],
+  "RAM-Spike": [
+    ["}~(^_^^_^)~{", "}~(0 .. 0)~{", "  ( .--. )  ", "  (_/  \\_)  "],
+    ["}~(^_^^_^)~{", "}~(0 .. 0)~{", "  ( .--. )  ", "  (_/  \\_)  "],
+    ["}~(^_^^_^)~{", "}~(0 .. 0)~{", "  ( .--. )  ", "  (_/  \\_)  "]
+  ],
+  "Packet-Eel": [
+    ["            ", "  <-o--=_____", "        \\~~~~>", "            ", "            "],
+    ["            ", "  <-o--=_____", "        \\~~~~>", "            ", "            "],
+    ["            ", "  <-o--=_____", "        \\~~~~>", "            ", "            "]
+  ],
+  "Port-Wyrm": [
+    ["            ", "  <o==________", "      \\_:8080~~", "            ", "            "],
+    ["            ", "  <o==________", "      \\_:8080~~", "            ", "            "],
+    ["            ", "  <o==________", "      \\_:8080~~", "            ", "            "]
+  ],
+  "Socket-Squid": [
+    ["            ", "   .-==-.   ", "   |o  o|  ", "   |____|  ", "  /\\/\\/\\/\\  "],
+    ["            ", "   .-==-.   ", "   |o  o|  ", "   |____|  ", "  /\\/\\/\\/\\  "],
+    ["            ", "   .-==-.   ", "   |o  o|  ", "   |____|  ", "  /\\/\\/\\/\\  "]
+  ],
+  "Bot-Node": [
+    ["            ", "   .[||].   ", "  [ o  o ]  ", "  [ ==== ]  ", "  `------´  "],
+    ["            ", "   .[||].   ", "  [ o  o ]  ", "  [ ==== ]  ", "  `------´  "],
+    ["            ", "   .[||].   ", "  [ o  o ]  ", "  [ ==== ]  ", "  `------´  "]
+  ],
+  "Con-Proc": [
+    ["     (o>    ", "     ||     ", "   _(__)_   ", "    ^^^^    "],
+    ["     (o>    ", "     ||     ", "   _(__)_   ", "    ^^^^    "],
+    ["     (o>    ", "     ||     ", "   _(__)_   ", "    ^^^^    "]
+  ],
+  "Wifi-Owl": [
+    ["   /\\__/\\   ", "  ((o)(o))  ", "  (  <>  )  ", "   `----´   "],
+    ["   /\\__/\\   ", "  ((o)(o))  ", "  (  <>  )  ", "   `----´   "],
+    ["   /\\__/\\   ", "  ((o)(o))  ", "  (  <>  )  ", "   `----´   "]
+  ],
+  "Firewall-Drake": [
+    ["   ^    ^     ", "  /^\\  /^\\  ", "<< o \\/ o >> ", " (   ~~   ) ", "  `-vvvv-´  "],
+    ["   ^    ^     ", "  /^\\  /^\\  ", "<< o \\/ o >> ", " (   ~~   ) ", "  `-vvvv-´  "],
+    ["   ^    ^     ", "  /^\\  /^\\  ", "<< o \\/ o >> ", " (   ~~   ) ", "  `-vvvv-´  "]
   ],
   "Electrobyte": [
-    ["      / \\ / \\   ", "    --{E}---{E}-- ", "     /  / \\  \\  ", "    ^ ^ ^ ^ ^ ^ ", "                "],
-    ["      \\ / \\ /   ", "    --{E}---{E}-- ", "     \\  \\ /  /  ", "    v v v v v v ", "                "],
-    ["      - - - -   ", "    --{E}---{E}-- ", "     -  - -  -  ", "    ~ ~ ~ ~ ~ ~ ", "                "]
+    ["       .   . ", "      / \\ / \\   ", "    -o-o-o-o-o- ", "    / o /o\\ o \\  ", "    ^ ^ ^ ^ ^ ^ ", "                "],
+    ["       .   . ", "      / \\ / \\   ", "    -o-o-o-o-o- ", "    / o /o\\ o \\  ", "    ^ ^ ^ ^ ^ ^ ", "                "],
+    ["       .   . ", "      / \\ / \\   ", "    -o-o-o-o-o- ", "    / o /o\\ o \\  ", "    ^ ^ ^ ^ ^ ^ ", "                "]
   ],
   "Killabit": [
-    ["      _______   ", "     [| {E} {E} |]  ", "     <|  X  |>  ", "      \\_____/   ", "      /     \\   "],
-    ["      _______   ", "     [| {E} {E} |]  ", "     <| -X- |>  ", "      \\_____/   ", "      |     |   "],
-    ["      _______   ", "     [| {E} {E} |]  ", "     <|  X  |>  ", "      \\_____/   ", "      \\     /   "]
+    ["     >___^___<   ", "      | o o |  ", "     <|  x  |>  ", "      \\_____/   ", "      /     \\   "],
+    ["     >___^___<   ", "      | o o |  ", "     <|  x  |>  ", "      \\_____/   ", "      /     \\   "],
+    ["     >___^___<   ", "      | o o |  ", "     <|  x  |>  ", "      \\_____/   ", "      /     \\   "]
   ],
   "Encryptobot": [
-    ["       _.[{E}]._ ", "      /--------- \\", "     | [ CIPHER ] |", "     |  {E}   {E}  |", "       /| / \\ |\\  "],
-    ["       _.[{E}]._ ", "      /--------- \\", "     | < CIPHER > |", "     |  {E}   {E}  |", "       \\| \\ / |/  "],
-    ["       _:[{E}]:_ ", "      /--------- \\", "     | [ CIPHER ] |", "     |  {E}   {E}  |", "       -| - - |-  "]
+    ["      __.[00].__ ", "     /----------\\", "     | [CIPHER] |", "     |          |", "      \\/|_/\\_|\\/  "],
+    ["      __.[00].__ ", "     /----------\\", "     | [CIPHER] |", "     |          |", "      \\/|_/\\_|\\/  "],
+    ["      __.[00].__ ", "     /----------\\", "     | [CIPHER] |", "     |          |", "      \\/|_/\\_|\\/  "]
   ],
   "Hashpass": [
-    ["      .-----.   ", "     / {E}  {E} \\  ", "    |  *KEY*  | ", "     '====='    ", "      ~ ~ ~ ~   "],
-    ["      .-----.   ", "     / {E}  {E} \\  ", "    | -*KEY*- | ", "     '====='    ", "       ~ ~ ~    "],
-    ["      .-----.   ", "     / {E}  {E} \\  ", "    |  *KEY*  | ", "     '====='    ", "      ` ` ` `   "]
+    ["      .------.   ", "     / 0 -- 0 \\  ", "    |          | ", "     \\'#PASS#'/   ", "      ~ ~  ~ ~   "],
+    ["      .------.   ", "     / 0 -- 0 \\  ", "    |          | ", "     \\'#PASS#'/   ", "      ~ ~  ~ ~   "],
+    ["      .------.   ", "     / 0 -- 0 \\  ", "    |          | ", "     \\'#PASS#'/   ", "      ~ ~  ~ ~   "]
   ],
   "Eskalate": [
-    ["     [ ACCESS  ]", "    [| {E}   {E} |]", "    [|  LEVEL  |]", "    [|  99999  |]", "     \\________/"],
-    ["     < ACCESS  >", "    <| {E}   {E} |>", "    <|  LEVEL  |>", "    <|  99999  |>", "     \\________/"],
-    ["     [ ACCESS  ]", "    [| {E}   {E} |]", "    [|  LEVEL  |]", "    [|  88888  |]", "     \\________/"]
+    ["      /-*****-\\", "    [| o |^| o |]", "    [|  **=**  |]", "    [| =**=**= |]", "     \\_________/"],
+    ["      /-*****-\\", "    [| o |^| o |]", "    [|  **=**  |]", "    [| =**=**= |]", "     \\_________/"],
+    ["      /-*****-\\", "    [| o |^| o |]", "    [|  **=**  |]", "    [| =**=**= |]", "     \\_________/"]
+  ],
+  "Sudo -S": [
+    ["   _  /-\\  _       ", "  /*\\/|*|\\/*\\  ", " <|*|-|*|-|*|> ", "  \\*/\\|*|/\\*/      ", "   ^  \\-/  ^"],
+    ["   _  /-\\  _       ", "  /*\\/|*|\\/*\\  ", " <|*|-|*|-|*|> ", "  \\*/\\|*|/\\*/      ", "   ^  \\-/  ^"],
+    ["   _  /-\\  _       ", "  /*\\/|*|\\/*\\  ", " <|*|-|*|-|*|> ", "  \\*/\\|*|/\\*/      ", "   ^  \\-/  ^"]
   ],
   "Logic-Bomb": [
-    ["      [  ERROR ]", "     [| {E}  {E} |]", "      \\---!----/", "         / \\    ", "                "],
-    ["      [ ERROR! ]", "     [| {E}  {E} |]", "      \\---!---/ ", "         \\ /    ", "                "],
-    ["      [  ERROR ]", "     [| {E}  {E} |]", "      \\---!----/", "         | |    ", "                "]
+    ["       -|\\--/|-", "      /---!!---\\", "     [| o -- o |]", "      \\---!!---/", "       \\-/--\\-/    ", "                "],
+    ["       -|\\--/|-", "      /---!!---\\", "     [| o -- o |]", "      \\---!!---/", "       \\-/--\\-/    ", "                "],
+    ["       -|\\--/|-", "      /---!!---\\", "     [| o -- o |]", "      \\---!!---/", "       \\-/--\\-/    ", "                "]
   ],
   "Key-Logger": [
-    ["      /\\ [ {E} ]/\\", "     |  [LOG]  |", "      \\/[---]\\/", "      /|     |\\", "                "],
-    ["      -- [ {E} ]--", "     | < LOG > |", "      --[---]--", "      \\|     |/", "                "],
-    ["      \\/ [ {E} ]\\/", "     |  [LOG]  |", "      /\\[---]/\\", "      -|     |-", "                "]
+    ["      /\\[-^-]/\\", "     |--[LOG]--|", "      \\/[-_-]\\/", "      /|     |\\", "                "],
+    ["      /\\[-^-]/\\", "     |--[LOG]--|", "      \\/[-_-]\\/", "      /|     |\\", "                "],
+    ["      /\\[-^-]/\\", "     |--[LOG]--|", "      \\/[-_-]\\/", "      /|     |\\", "                "]
   ],
   "Trojan-Horse": [
-    ["      _..__   /|", "     | {E}  |_/_|", "     |  DATA____|", "     |_|--|_|   ", "                "],
-    ["      _..__   /|", "     | {E}  |_/_|", "     | -DATA-___|", "     |_|--|_|   ", "                "],
-    ["      _..__   \\|", "     | {E}  |_\\_|", "     |  DATA____|", "     |_|--|_|   ", "                "]
+    ["              __", "    _________/ o\\", "     | rm -rf____]", "     |_|--|_|   ", "                "],
+    ["              __", "    _________/ o\\", "     | rm -rf____]", "     |_|--|_|   ", "                "],
+    ["              __", "    _________/ o\\", "     | rm -rf____]", "     |_|--|_|   ", "                "]
   ],
   "Ransom-Ware": [
-    ["      .-------.", "     /  [ {E} ]  \\", "     |  LOCKED  |", "     \\  [ {E} ]  /", "      '-------' "],
-    ["      .-------.", "     <  [ {E} ]  >", "     | -LOCKED- |", "     <  [ {E} ]  >", "      '-------' "],
-    ["      .-------.", "     /  [ {E} ]  \\", "     |  LOCKED  |", "     \\  [ {E} ]  /", "      '-------' "]
+    ["      .-------.", "     /  #-#-#  \\", "     |-Encrypt-|", "     \\  #-#-#  /", "      '-------' "],
+    ["      .-------.", "     /  #-#-#  \\", "     |-Encrypt-|", "     \\  #-#-#  /", "      '-------' "],
+    ["      .-------.", "     /  #-#-#  \\", "     |-Encrypt-|", "     \\  #-#-#  /", "      '-------' "]
   ],
   "Bit-Stalker": [
-    ["      / \\  / \\  ", "     [ {E}][{E} ] ", "      \\ /--\\ /  ", "      / \\  / \\  ", "                "],
-    ["      - -  - -  ", "     [ {E}][{E} ] ", "      - -  - -  ", "      \\ /--\\ /  ", "                "],
-    ["      / \\  / \\  ", "     [ {E}][{E} ] ", "      \\ /--\\ /  ", "      - -  - -  ", "                "]
+    ["      / \\  / \\  ", "     [ o]^^[o ] ", "      \\ /--\\ /  ", "      / \\__/ \\  ", "                "],
+    ["      / \\  / \\  ", "     [ o]^^[o ] ", "      \\ /--\\ /  ", "      / \\__/ \\  ", "                "],
+    ["      / \\  / \\  ", "     [ o]^^[o ] ", "      \\ /--\\ /  ", "      / \\__/ \\  ", "                "]
   ],
   "Null-Void": [
-    ["      {  ???  } ", "     {  {E} {E}  } ", "      {  ???  } ", "                ", "                "],
-    ["      {{ ??? }} ", "     {{ {E} {E} }} ", "      {{ ??? }} ", "                ", "                "],
-    ["      {  ???  } ", "     {  {E} {E}  } ", "      {  ???  } ", "       . . . .  ", "                "]
+    ["        ", "       / ?o? \\ ", "      (  o?o  ) ", "       \\ ?o? / ", "                ", "                "],
+    ["        ", "       / ?o? \\ ", "      (  o?o  ) ", "       \\ ?o? / ", "                ", "                "],
+    ["        ", "       / ?o? \\ ", "      (  o?o  ) ", "       \\ ?o? / ", "                ", "                "]
   ],
   "Worm-Link": [
-    ["     O-O-O-O-O  ", "    (  {E}  {E} ) ", "     `-+-+-+-+` ", "                ", "                "],
-    ["     -O-O-O-O-  ", "    (  {E}  {E} ) ", "     `-+-+-+-+` ", "                ", "                "],
-    ["     O-O-O-O-O  ", "    (  {E}  {E} ) ", "     `-+-+-+-+` ", "       ~ ~ ~    ", "                "]
+    ["     O-O-O-O-O  ", "    (  o  o ) ", "     `-+-+-+-+` ", "                ", "                "],
+    ["     O-O-O-O-O  ", "    (  o  o ) ", "     `-+-+-+-+` ", "                ", "                "],
+    ["     O-O-O-O-O  ", "    (  o  o ) ", "     `-+-+-+-+` ", "                ", "                "]
   ],
   "Spy-Ware": [
-    ["      [SCANNING...]", "     [ {E} {E} {E} ]", "     [  {E} {E}  ]", "      \\_______/ ", "      / | | | \\ "],
-    ["      [ANALYZING..]", "     [ {E} {E} {E} ]", "     [  {E} {E}  ]", "      \\_______/ ", "      | | | | | "],
-    ["      [SCANNING...]", "     [ {E} {E} {E} ]", "     [  {E} {E}  ]", "      \\_______/ ", "      \\ | | | / "]
+    ["         ___", "      __/   \\__  ", "     {  o o o  }", "     {   o o   }", "      \\___o___/ ", "      / | | | \\ "],
+    ["         ___", "      __/   \\__  ", "     {  o o o  }", "     {   o o   }", "      \\___o___/ ", "      / | | | \\ "],
+    ["         ___", "      __/   \\__  ", "     {  o o o  }", "     {   o o   }", "      \\___o___/ ", "      / | | | \\ "]
+  ],
+  "Fork-Bomb": [
+    ["            ", "   .----.   ", "  ( o  o )  ", "  | /\\/\\ |  ", "   `-!!-'   "],
+    ["            ", "   .----.   ", "  ( o  o )  ", "  | /\\/\\ |  ", "   `-!!-'   "],
+    ["            ", "   .----.   ", "  ( o  o )  ", "  | /\\/\\ |  ", "   `-!!-'   "]
+  ],
+  "Zombie-Proc": [
+    ["   .----.   ", "  ( o  o )  ", "  /|_==_|\\  ", "   /\\  /\\    "],
+    ["   .----.   ", "  ( o  o )  ", "  /|_==_|\\  ", "   /\\  /\\    "],
+    ["   .----.   ", "  ( o  o )  ", "  /|_==_|\\  ", "   /\\  /\\    "]
+  ],
+  "Dropper-File": [
+    ["            ", "  ^__^^__^   ", "  | o  o |  ", "  |  ^^  |   ", "  `------'   "],
+    ["            ", "  ^__^^__^   ", "  | o  o |  ", "  |  ^^  |   ", "  `------'   "],
+    ["            ", "  ^__^^__^   ", "  | o  o |  ", "  |  ^^  |   ", "  `------'   "]
+  ],
+  "Wipe-Script": [
+    ["            ", "  ./----\\.  ", "  | o  o |  ", "  |remove|   ", "   `===='    "],
+    ["            ", "  ./----\\.  ", "  | o  o |  ", "  |remove|   ", "   `===='    "],
+    ["            ", "  ./----\\.  ", "  | o  o |  ", "  |remove|   ", "   `===='    "]
+  ],
+  "Raw-Sector": [
+    ["            ", "  [======]  ", "  [ o  o ]  ", "  [__||__]  ", "   / || \\    "],
+    ["            ", "  [======]  ", "  [ o  o ]  ", "  [__||__]  ", "   / || \\    "],
+    ["            ", "  [======]  ", "  [ o  o ]  ", "  [__||__]  ", "   / || \\    "]
+  ],
+  "IO-Leech": [
+    ["            ", "   .----.   ", "  ( o  o )  ", "  /==||==\\  ", "   ~~  ~~    "],
+    ["            ", "   .----.   ", "  ( o  o )  ", "  /==||==\\  ", "   ~~  ~~    "],
+    ["            ", "   .----.   ", "  ( o  o )  ", "  /==||==\\  ", "   ~~  ~~    "]
+  ],
+  "Init-Reaper": [
+    ["            ", "   /^^^^\\   ", "  ( o  o )  ", "  | INIT |   ", "   \\\\__//    "],
+    ["            ", "   /^^^^\\   ", "  ( o  o )  ", "  | INIT |   ", "   \\\\__//    "],
+    ["            ", "   /^^^^\\   ", "  ( o  o )  ", "  | INIT |   ", "   \\\\__//    "]
+  ],
+  "Shred-Null": [
+    ["            ", "   .~~~~.   ", "  ( o  o )  ", "  |      |   ", "   \\\\##//    "],
+    ["            ", "   .~~~~.   ", "  ( o  o )  ", "  |      |   ", "   \\\\##//    "],
+    ["            ", "   .~~~~.   ", "  ( o  o )  ", "  |      |   ", "   \\\\##//    "]
+  ],
+  "Kernel-Driver": [
+    ["            ", "   [DRIVER] ", "  /  o  o  \\  ", "  [==:CD:==] ", "   /_|  |_\\    "],
+    ["            ", "   [DRIVER] ", "  /  o  o  \\  ", "  [==:CD:==] ", "   /_|  |_\\    "],
+    ["            ", "   [DRIVER] ", "  /  o  o  \\  ", "  [==:CD:==] ", "   /_|  |_\\    "]
   ]
 };
-var HAT_LINES = {
-  none: "            ",
-  crown: "   \\^^^/    ",
-  tophat: "   [___]    ",
-  propeller: "    -+-     ",
-  halo: "   (   )    ",
-  wizard: "    /^\\     ",
-  beanie: "   (___)    ",
-  tinyduck: "    ,>      "
+var HAT_GLYPHS = {
+  none: '',
+  crown: '\\^^^/',
+  tophat: '[___]',
+  propeller: '-+-',
+  halo: '(   )',
+  wizard: '/^\\',
+  beanie: '(___)',
+  tinyduck: ',>'
 };
-function renderSprite(species, eye, hat, frame = 0) {
-  const frames = BODIES[species];
-  const body = frames[frame % frames.length].map((line) => line.replaceAll("{E}", eye));
-  const lines = [...body];
-  if (hat !== "none" && !lines[0].trim()) {
-    lines[0] = HAT_LINES[hat];
+function visibleWidth(line) {
+  return [...stripAnsi(line)].length;
+}
+function centerAscii(text, width) {
+  const len = [...text].length;
+  if (width <= len) return text;
+  const left = Math.floor((width - len) / 2);
+  return ' '.repeat(left) + text + ' '.repeat(width - len - left);
+}
+function padAscii(line, width, align = 'left') {
+  const len = visibleWidth(line);
+  if (len >= width) return line;
+  const diff = width - len;
+  if (align === 'right') return ' '.repeat(diff) + line;
+  if (align === 'center') {
+    const left = Math.floor(diff / 2);
+    return ' '.repeat(left) + line + ' '.repeat(diff - left);
   }
-  if (!lines[0].trim() && frames.every((f) => !f[0].trim())) lines.shift();
+  return line + ' '.repeat(diff);
+}
+function renderSprite(species, eye, hat, frame = 0) {
+  const canonical = typeof canonicalSpeciesName === 'function' ? canonicalSpeciesName(species) : species;
+  const frames = BODIES[canonical] ?? BODIES[species] ?? BODIES['Bit-Blob'];
+  const rawFrame = frames[frame % frames.length] ?? frames[0] ?? [];
+  const lines = rawFrame.map((line) => line.replaceAll('{E}', eye));
+  const width = Math.max(1, ...lines.map((line) => visibleWidth(line)));
+  if (hat !== 'none' && lines.length > 0 && !lines[0].trim()) {
+    lines[0] = centerAscii(HAT_GLYPHS[hat] ?? '', width);
+  }
   return lines;
 }
-BODIES["Sudo -S"] = BODIES["Da-Kernel"];
-BODIES["Fork-Bomb"] = [
-  ["            ", "   .----.   ", "  ( {E}  {E} )  ", "  | /\\/\\ |  ", "   `-!!-'   "],
-  ["            ", "   .----.   ", "  ( {E}  {E} )  ", "  | \\/\\/ |  ", "   `-!!-'   "],
-  ["    * *     ", "   .----.   ", "  ( {E}  {E} )  ", "  | /\\/\\ |  ", "   `-!!-'   "]
-];
-BODIES["Zombie-Proc"] = [
-  ["            ", "   .----.   ", "  ( {E}  {E} )  ", "  /|_==_|\\  ", "   /  /\\    "],
-  ["            ", "   .----.   ", "  ( {E}  {E} )  ", "  /|_==_|\\  ", "    /\\  \\   "],
-  ["            ", "   .----.   ", "  ( {E}  {E} )  ", "  /|_--_|\\  ", "   /  /\\    "]
-];
-BODIES["Dropper-File"] = [
-  ["            ", "   ______   ", "  | {E}  {E} |  ", "  | PAYLD|   ", "  `------'   "],
-  ["            ", "   ______   ", "  | {E}  {E} |  ", "  | DROP |   ", "  `------'   "],
-  ["     v      ", "   ______   ", "  | {E}  {E} |  ", "  | PAYLD|   ", "  `------'   "]
-];
-BODIES["Wipe-Script"] = [
-  ["            ", "  ./----\\.  ", "  | {E}  {E} |  ", "  | rm - |   ", "   `===='    "],
-  ["            ", "  .|----|.  ", "  | {E}  {E} |  ", "  | shred|   ", "   `===='    "],
-  ["    ~~~     ", "  ./----\\.  ", "  | {E}  {E} |  ", "  | rm - |   ", "   `===='    "]
-];
-BODIES["Raw-Sector"] = [
-  ["            ", "  [======]  ", "  [ {E}  {E} ]  ", "  [__||__]  ", "   / || \\    "],
-  ["            ", "  [======]  ", "  [ {E}  {E} ]  ", "  [= || =]  ", "   / || \\    "],
-  ["    . .     ", "  [======]  ", "  [ {E}  {E} ]  ", "  [__||__]  ", "   / || \\    "]
-];
-BODIES["IO-Leech"] = [
-  ["            ", "   .----.   ", "  ( {E}  {E} )  ", "  /==||==\\  ", "   ~~  ~~    "],
-  ["            ", "   .----.   ", "  ( {E}  {E} )  ", "  /==||==\\  ", "    ~~ ~~    "],
-  ["      o     ", "   .----.   ", "  ( {E}  {E} )  ", "  /==||==\\  ", "   ~~  ~~    "]
-];
-BODIES["Init-Reaper"] = [
-  ["            ", "   /^^^^\\   ", "  ( {E}  {E} )  ", "  | INIT |   ", "   \\\\__//    "],
-  ["            ", "   /^^^^\\   ", "  ( {E}  {E} )  ", "  | REAP |   ", "   \\\\__//    "],
-  ["    ***     ", "   /^^^^\\   ", "  ( {E}  {E} )  ", "  | INIT |   ", "   \\\\__//    "]
-];
-BODIES["Shred-Null"] = [
-  ["            ", "   .~~~~.   ", "  ( {E}  {E} )  ", "  | NULL |   ", "   \\\\##//    "],
-  ["            ", "   .~~~~.   ", "  ( {E}  {E} )  ", "  | SHRD |   ", "   \\\\##//    "],
-  ["    :::     ", "   .~~~~.   ", "  ( {E}  {E} )  ", "  | NULL |   ", "   \\\\##//    "]
-];
-BODIES["Kernel-Driver"] = [
-  ["            ", "  [ DRIVER] ", "  [ {E}  {E} ]  ", "  [==BUS==] ", "   /_||_\\    "],
-  ["            ", "  < DRIVER> ", "  [ {E}  {E} ]  ", "  [==BUS==] ", "   /_||_\\    "],
-  ["    ===     ", "  [ DRIVER] ", "  [ {E}  {E} ]  ", "  [==BUS==] ", "   /_||_\\    "]
-];
 
 // src/engine/terminal.ts
 var ESC = "\x1B";
@@ -4869,7 +4926,7 @@ function enterDungeon(state2) {
   const PREREQS = {
     south: { species: "Wifi-Owl", name: "Cryo-Compiler", dungeon: "Cryo-Stack" },
     east: { species: "Firewall-Drake", name: "GPU-Inferno", dungeon: "Overclock Core" },
-    cache: { species: "Honk-Process", name: "Legacy Protocol", dungeon: "Bit-Rot Pit" },
+    cache: { species: "Con-Proc", name: "Legacy Protocol", dungeon: "Bit-Rot Pit" },
     west: { species: "Spy-Ware", name: "Spy-Ware", dungeon: "Defrag Chamber" },
     sandbox: { species: "Bot-Node", name: "Abyssal Kernel", dungeon: "Deep Buffer" },
     home: { species: "Ransom-Ware", name: "Ransom-Ware", dungeon: "Quarantine Vault" },
@@ -5185,67 +5242,60 @@ function renderBattle(state2) {
   const playerWiggle = currentAnim?.actor === "player" && currentAnim.kind === "hit" ? animFrame % 3 : 0;
   const enemyLines = renderSprite(enemy.species, enemy.eye, enemy.hat, enemyWiggle);
   const playerLines = renderSprite(playerC.species, playerC.eye, playerC.hat, playerWiggle);
-  const spriteW = 12;
-  const sidePad = Math.max(2, Math.floor((W - (spriteW * 2 + 10)) / 2));
-  const gap = W - (spriteW * 2 + sidePad * 2 + 2);
+  const enemyArtW = Math.max(1, ...enemyLines.map((line) => visibleWidth(line)));
+  const playerArtW = Math.max(1, ...playerLines.map((line) => visibleWidth(line)));
+  const enemyBoxW = enemyArtW + 2;
+  const playerBoxW = playerArtW + 2;
+  const spriteRows = Math.max(1, enemyLines.length, playerLines.length);
+  let sidePad = Math.max(2, Math.floor((W - (enemyBoxW + playerBoxW + 10)) / 2));
+  let gap = W - (enemyBoxW + playerBoxW + sidePad * 2 + 2);
+  if (gap < 4) {
+    sidePad = 1;
+    gap = Math.max(0, W - (enemyBoxW + playerBoxW + sidePad * 2 + 2));
+  }
   function pushRow(content) {
     rows.push(content);
   }
   pushRow(topBorder(battle.context === "boss" ? "CRITICAL SYSTEM BREACH - BOSS" : "BATTLE SESSION", W));
-  function decorateSprite(line, actor, row) {
-    const base = line.padEnd(spriteW, " ").slice(0, spriteW);
-    const chars = base.split("");
-    if (!currentAnim || currentAnim.actor !== actor) return base;
+  function isActiveSpriteRow(row) {
+    if (spriteRows <= 2) return true;
+    return row > 0 && row < spriteRows - 1;
+  }
+  function decorateSprite(line, actor, row, artWidth) {
+    const base = padAscii(line, artWidth);
+    let left = " ";
+    let right = " ";
+    if (!currentAnim || currentAnim.actor !== actor || !isActiveSpriteRow(row)) return `${left}${base}${right}`;
     if (currentAnim.kind === "defend") {
-      if (row < 1 || row > 3) return base;
-      chars[0] = "[";
-      chars[spriteW - 1] = "]";
-      if (row === 2) {
-        chars[1] = "=";
-        chars[spriteW - 2] = "=";
-      }
-      return chars.join("");
+      left = row === Math.floor(spriteRows / 2) ? "=" : "[";
+      right = row === Math.floor(spriteRows / 2) ? "=" : "]";
+      return `${left}${base}${right}`;
     }
     if (currentAnim.kind === "hit") {
-      if (row < 1 || row > 3) return base;
-      chars[0] = "{";
-      chars[spriteW - 1] = "}";
-      if (row === 2) {
-        chars[1] = "!";
-        chars[spriteW - 2] = "!";
-      }
-      return chars.join("");
+      left = row === Math.floor(spriteRows / 2) ? "!" : "{";
+      right = row === Math.floor(spriteRows / 2) ? "!" : "}";
+      return `${left}${base}${right}`;
     }
     if (currentAnim.kind === "heal") {
-      if (row === 0 || row === 4) return base;
-      chars[0] = "+";
-      chars[spriteW - 1] = "+";
-      if (row === 2) {
-        chars[Math.floor(spriteW / 2)] = "+";
-      }
-      return chars.join("");
+      left = "+";
+      right = "+";
+      return `${left}${base}${right}`;
     }
     if (currentAnim.kind === "capture" && actor === "enemy") {
-      if (row < 1 || row > 3) return base;
-      chars[0] = "(";
-      chars[spriteW - 1] = ")";
-      if (row === 2) {
-        chars[1] = "o";
-        chars[spriteW - 2] = "o";
-      }
-      return chars.join("");
+      left = row === Math.floor(spriteRows / 2) ? "o" : "(";
+      right = row === Math.floor(spriteRows / 2) ? "o" : ")";
+      return `${left}${base}${right}`;
     }
-    if (currentAnim.kind === "flee" && actor === "player" && row === 2) {
-      chars[0] = "~";
-      chars[1] = "~";
-      chars[2] = ">";
-      return chars.join("");
+    if (currentAnim.kind === "flee" && actor === "player" && row === Math.floor(spriteRows / 2)) {
+      left = "~";
+      right = ">";
+      return `${left}${base}${right}`;
     }
-    return chars.join("");
+    return `${left}${base}${right}`;
   }
   function renderProjectileGap(row) {
     const chars = Array.from({ length: gap }, () => " ");
-    if (!currentAnim || row !== 2) return chars.join("");
+    if (!currentAnim || row !== Math.floor(spriteRows / 2) || gap <= 0) return chars.join("");
     const progress = currentAnim.frames <= 1 ? 1 : animFrame / (currentAnim.frames - 1);
     if (currentAnim.kind === "attack") {
       const glyphs = [".", "o", "O", "*", "O", "o"];
@@ -5266,20 +5316,19 @@ function renderBattle(state2) {
     }
     return chars.join("");
   }
-  const emptyRow = `\u2502${" ".repeat(sidePad)}${" ".repeat(spriteW)}${" ".repeat(gap)}${" ".repeat(spriteW)}${" ".repeat(sidePad)}\u2502`;
+  const emptyRow = `\u2502${" ".repeat(sidePad)}${" ".repeat(enemyBoxW)}${" ".repeat(gap)}${" ".repeat(playerBoxW)}${" ".repeat(sidePad)}\u2502`;
   pushRow(emptyRow);
-  for (let i = 0; i < 5; i++) {
-    const eL = decorateSprite(enemyLines[i] ?? "", "enemy", i);
-    const pL = decorateSprite(playerLines[i] ?? "", "player", i);
+  for (let i = 0; i < spriteRows; i++) {
+    const eL = decorateSprite(enemyLines[i] ?? "", "enemy", i, enemyArtW);
+    const pL = decorateSprite(playerLines[i] ?? "", "player", i, playerArtW);
     const mid = renderProjectileGap(i);
     pushRow(`\u2502${" ".repeat(sidePad)}${BRIGHT_RED}${eL}${RESET}${mid}${BRIGHT_GREEN}${pL}${RESET}${" ".repeat(sidePad)}\u2502`);
   }
   pushRow(emptyRow);
   const enemyRarColor = rarityColor(enemy.rarity);
   const playerRarColor = rarityColor(playerC.rarity);
-  const combatColW = spriteW + sidePad;
-  const leftCombatW = combatColW + Math.floor(gap / 2);
-  const rightCombatW = combatColW + Math.ceil(gap / 2);
+  const leftCombatW = sidePad + enemyBoxW + Math.floor(gap / 2);
+  const rightCombatW = Math.ceil(gap / 2) + playerBoxW + sidePad;
   const enemyName = pad(`${enemyRarColor}${enemy.nickname}${RESET} Lv${enemy.level}`, leftCombatW, "center");
   const playerName = pad(`${playerRarColor}${playerC.nickname}${RESET} Lv${playerC.level}`, rightCombatW, "center");
   const enemyBar = pad(`${hpBar(enemy.currentHp, enemy.maxHp, 10)} ${enemy.currentHp}/${enemy.maxHp} MB`, leftCombatW, "center");

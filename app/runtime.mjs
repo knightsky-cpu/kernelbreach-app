@@ -2467,8 +2467,13 @@ var DEBUG_LOG_LIMIT = 160;
 var debugLogBuffer = [];
 function getBundledFfplayPath() {
   if (process.platform !== "win32") return null;
-  const bundledPath = path.join(path.dirname(process.execPath), "ffplay.exe");
-  return fs.existsSync(bundledPath) ? bundledPath : null;
+  const exeDir = path.dirname(process.execPath);
+  const candidates = [
+    process.resourcesPath ? path.join(process.resourcesPath, "ffplay.exe") : null,
+    path.join(exeDir, "resources", "ffplay.exe"),
+    path.join(exeDir, "ffplay.exe")
+  ].filter(Boolean);
+  return candidates.find((candidate) => fs.existsSync(candidate)) ?? null;
 }
 function appendDebugLog(channel, message) {
   debugLogBuffer.push({ channel, message, at: new Date().toLocaleTimeString() });

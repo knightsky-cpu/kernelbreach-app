@@ -2460,6 +2460,23 @@ function getAudioTrackPath(trackId) {
   if (!track) return null;
   return path.join(getAudioDir(), track.file);
 }
+function getRuntimeAppVersion() {
+  if (process.env.KERNELBREACH_APP_VERSION) return process.env.KERNELBREACH_APP_VERSION;
+  const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    path.resolve(moduleDir, "../package.json"),
+    process.resourcesPath ? path.join(process.resourcesPath, "app.asar", "package.json") : null
+  ].filter(Boolean);
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(candidate, "utf8"));
+      if (parsed?.version) return parsed.version;
+    } catch {
+    }
+  }
+  return "1.0.0";
+}
+var APP_DISPLAY_VERSION = `v${getRuntimeAppVersion()}`;
 var AUDIO_RUNTIME_ENABLED = process.env.KERNELBREACH_ENABLE_AUDIO !== "0";
 var audioDebugEnabled = process.env.KERNELBREACH_AUDIO_DEBUG === "1";
 var engineDebugEnabled = process.env.KERNELBREACH_VERBOSE_DEBUG === "1";
@@ -3737,7 +3754,7 @@ function renderTitle(cursor, statusMessage = "") {
     "",
     dim(pad("\u2191\u2193: Select   Enter: Confirm", W, "center")),
     "",
-    dim(pad("v1.0.0", W, "center"))
+    dim(pad(APP_DISPLAY_VERSION, W, "center"))
   ];
   const totalContentHeight = titleBlock.length + optionLines.length + statusLines.length + footerLines.length;
   const topPadding = Math.max(1, Math.floor((terminalRows - totalContentHeight) / 2) - 1);

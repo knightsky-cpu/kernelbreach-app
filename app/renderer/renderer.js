@@ -4,8 +4,19 @@ const frameWrap = document.querySelector(".frame-wrap");
 const ESCAPE_HTML = {
   "&": "&amp;",
   "<": "&lt;",
-  ">": "&gt;"
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#39;"
 };
+const ANSI_CLASS_ALLOWLIST = new Set([
+  "ansi-bold",
+  "ansi-dim",
+  "ansi-blink",
+  ...Array.from({ length: 8 }, (_, index) => `ansi-fg-${30 + index}`),
+  ...Array.from({ length: 8 }, (_, index) => `ansi-fg-${90 + index}`),
+  ...Array.from({ length: 8 }, (_, index) => `ansi-bg-${40 + index}`),
+  "ansi-bg-100"
+]);
 
 const KEY_MAP = {
   ArrowUp: "\x1B[A",
@@ -19,7 +30,7 @@ const KEY_MAP = {
 };
 
 function escapeHtml(text) {
-  return text.replace(/[&<>]/g, (char) => ESCAPE_HTML[char]);
+  return text.replace(/[&<>"']/g, (char) => ESCAPE_HTML[char]);
 }
 
 function stripAnsi(text) {
@@ -39,7 +50,12 @@ function ansiToHtml(input) {
       html += escaped;
       return;
     }
-    html += `<span class="${classes.join(" ")}">${escaped}</span>`;
+    const safeClasses = classes.filter((name) => ANSI_CLASS_ALLOWLIST.has(name));
+    if (safeClasses.length === 0) {
+      html += escaped;
+      return;
+    }
+    html += `<span class="${safeClasses.join(" ")}">${escaped}</span>`;
   }
 
   let match;

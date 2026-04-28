@@ -90,6 +90,75 @@ function isConfirm(key) {
 function isCancel(key) {
   return key === KEY.ESCAPE || key === KEY.x || key === KEY.X;
 }
+var CHARACTER_NAME_PATTERN = /^[A-Za-z0-9 _-]+$/;
+var PASSWORD_INPUT_PATTERN = /^[ -~]$/;
+var SCRIPT_NAME_PATTERN = /^[A-Za-z0-9_-]+$/;
+var ULTIMATE_EXPLOIT_KEY_PATTERN = /^[A-Za-z0-9]{16}$/;
+var TERMINAL_PASSWORD = "Terminal#quest4";
+var TEXT_ENTRY_SCREENS = /* @__PURE__ */ new Set([
+  "new_game_name",
+  "new_game_password",
+  "scripts_terminal",
+  "final_key_input"
+]);
+var CONTROL_KEYS = /* @__PURE__ */ new Set([
+  KEY.UP,
+  KEY.DOWN,
+  KEY.LEFT,
+  KEY.RIGHT,
+  KEY.ENTER,
+  KEY.ENTER2,
+  KEY.SPACE,
+  KEY.ESCAPE,
+  KEY.BACKSPACE,
+  KEY.BACKSPACE2,
+  KEY.w,
+  KEY.s,
+  KEY.a,
+  KEY.d,
+  KEY.W,
+  KEY.S,
+  KEY.A,
+  KEY.D,
+  KEY.e,
+  KEY.E,
+  KEY.m,
+  KEY.M,
+  KEY.i,
+  KEY.I,
+  KEY.f,
+  KEY.F,
+  KEY.c,
+  KEY.C,
+  KEY.x,
+  KEY.X,
+  KEY.ONE,
+  KEY.TWO,
+  KEY.THREE,
+  KEY.FOUR,
+  KEY.FIVE,
+  KEY.DEV_TOGGLE
+]);
+function isValidCharacterName(name) {
+  return name.length >= 1 && name.length <= 32 && CHARACTER_NAME_PATTERN.test(name);
+}
+function isValidTerminalPassword(password) {
+  return password === TERMINAL_PASSWORD;
+}
+function isValidScriptName(name) {
+  return name.length >= 1 && name.length <= 12 && SCRIPT_NAME_PATTERN.test(name);
+}
+function isValidUltimateExploitKey(key) {
+  return ULTIMATE_EXPLOIT_KEY_PATTERN.test(key);
+}
+function canAppendInputChar(currentValue, char, maxLength, pattern) {
+  if (char.length !== 1) return false;
+  if (currentValue.length >= maxLength) return false;
+  return pattern.test(char);
+}
+function isAllowedControlKey(key) {
+  return CONTROL_KEYS.has(key);
+}
 
 // src/types.ts
 var ZONE_CONFIGS = {
@@ -3775,7 +3844,7 @@ function renderNameInput(nameInput) {
   rows.push("");
   rows.push(pad(`> ${color(nameInput, BRIGHT_WHITE)}${BLINK}_${RESET}`, W, "center"));
   rows.push("");
-  rows.push(dim(pad("Type the login and press ENTER", W, "center")));
+  rows.push(dim(pad("Type the login and press ENTER (max 32 characters)", W, "center")));
   renderFrame(rows);
 }
 function renderPasswordInput(passwordInput) {
@@ -4254,7 +4323,7 @@ function renderFinalKeyInput(state2) {
   } else {
     rows.push(`\u2502 ${pad(dim("Awaiting final purge authorization."), W - 4)} \u2502`);
   }
-  rows.push(`\u2502 ${pad(dim(`Type the ${keyLength}-character key and press ENTER. Press L to open Target-Log.`), W - 4)} \u2502`);
+  rows.push(`\u2502 ${pad(dim(`Type the ${keyLength}-character key and press ENTER. Press ? to open Target-Log.`), W - 4)} \u2502`);
   if (state2.showFinalTargetLog) {
     rows.push(divider(W));
     rows.push(`\u2502 ${bold("Target-Log")}${" ".repeat(W - 14)} \u2502`);
@@ -4311,6 +4380,9 @@ function executeFieldScript(state2, rawInput) {
   let next = appendScriptTerminalLog(state2, `> ${scriptName}`);
   if (!scriptName) {
     return next;
+  }
+  if (!isValidScriptName(scriptName) && scriptName !== "help") {
+    return appendScriptTerminalLog(next, "script name rejected");
   }
   if (scriptName === "help") {
     const scripts = getFieldScripts(state2.player);
@@ -4397,7 +4469,7 @@ function handleScriptsTerminal(state2, key) {
     const executed = executeFieldScript(state2, current);
     return { ...executed, scriptInput: "" };
   }
-  if (key.length === 1 && key >= " " && current.length < 24) {
+  if (canAppendInputChar(current, key, 12, SCRIPT_NAME_PATTERN)) {
     return { ...state2, scriptInput: current + key.toLowerCase() };
   }
   return state2;
@@ -4667,17 +4739,18 @@ function handleNewGameName(state2, key) {
     return { ...state2, nameInput: name.slice(0, -1) };
   }
   if (isConfirm(key)) {
-    if (name.trim().length < 1) return state2;
+    const trimmedName = name.trim();
+    if (!isValidCharacterName(trimmedName)) return state2;
     return {
       ...state2,
       screen: "new_game_password",
-      loginUser: name.trim(),
+      loginUser: trimmedName,
       passwordInput: "",
       menuCursor: 0
     };
   }
   if (isCancel(key)) return { ...state2, screen: "title", menuCursor: 0 };
-  if (key.length === 1 && key >= " " && name.length < 16) {
+  if (canAppendInputChar(name, key, 32, CHARACTER_NAME_PATTERN)) {
     return { ...state2, nameInput: name + key };
   }
   return state2;
@@ -4688,7 +4761,7 @@ function handleNewGamePassword(state2, key) {
     return { ...state2, passwordInput: password.slice(0, -1) };
   }
   if (isConfirm(key)) {
-    if (password === "Terminal#quest4") {
+    if (isValidTerminalPassword(password)) {
       return {
         ...state2,
         screen: "story_briefing",
@@ -4705,7 +4778,7 @@ function handleNewGamePassword(state2, key) {
     }, "**ACCESS DENIED**CHECK GAME'S ROOT DIRECTORY FOR CLUES**");
   }
   if (isCancel(key)) return { ...state2, screen: "title", menuCursor: 0, passwordInput: "", loginUser: "", nameInput: "" };
-  if (key.length === 1 && key >= " " && password.length < 32) {
+  if (canAppendInputChar(password, key, 32, PASSWORD_INPUT_PATTERN)) {
     return { ...state2, passwordInput: password + key };
   }
   return state2;
@@ -5710,7 +5783,7 @@ function handleCatch(state2, caught, returnScreen) {
   return s;
 }
 function handleFinalKeyInput(state2, key) {
-  if (key === "l" || key === "L") {
+  if (key === "?") {
     return { ...state2, showFinalTargetLog: !state2.showFinalTargetLog };
   }
   const currentInput = state2.finalKeyInput ?? "";
@@ -5718,7 +5791,7 @@ function handleFinalKeyInput(state2, key) {
     return { ...state2, finalKeyInput: currentInput.slice(0, -1), finalKeyError: "" };
   }
   if (isConfirm(key)) {
-    if (currentInput === state2.player.finalSecretKey) {
+    if (isValidUltimateExploitKey(currentInput) && currentInput === state2.player.finalSecretKey) {
       const secret = rollSecretLegendary();
       const addToParty = state2.player.party.length < 4;
       const updatedParty = addToParty ? [...state2.player.party, secret] : state2.player.party;
@@ -5750,7 +5823,7 @@ function handleFinalKeyInput(state2, key) {
       showFinalTargetLog: true
     };
   }
-  if (key.length === 1 && key >= " " && currentInput.length < state2.player.finalSecretKey.length) {
+  if (canAppendInputChar(currentInput, key, 16, /^[A-Za-z0-9]$/)) {
     return {
       ...state2,
       finalKeyInput: currentInput + key.toUpperCase(),
@@ -6089,6 +6162,9 @@ function handleTutorialComplete(state2, key) {
   };
 }
 function handleKey(state2, key) {
+  if (!TEXT_ENTRY_SCREENS.has(state2.screen) && !isAllowedControlKey(key)) {
+    return state2;
+  }
   switch (state2.screen) {
     case "splash":
       return handleSplash(state2);

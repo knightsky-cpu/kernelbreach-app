@@ -13,8 +13,17 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const MAX_RUNTIME_KEY_LENGTH = 16;
+const MIN_RUNTIME_COLS = 40;
+const MAX_RUNTIME_COLS = 240;
+const MIN_RUNTIME_ROWS = 20;
+const MAX_RUNTIME_ROWS = 100;
 
 let mainWindow = null;
+
+function clampNumber(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
 
 function getRuntimePackageJson() {
   const packageJsonPath = path.join(__dirname, "../../package.json");
@@ -29,7 +38,6 @@ function shouldEnableDevMenu() {
   const explicit = process.env.KERNELBREACH_ENABLE_DEV_MENU;
   if (explicit === "1") return true;
   if (explicit === "0") return false;
-  if (!app.isPackaged) return true;
   const packageJson = getRuntimePackageJson();
   return packageJson?.kernelBreach?.devMenuEnabled === true;
 }
@@ -111,6 +119,7 @@ app.whenReady().then(async () => {
 
 ipcMain.on("game:key", (_event, key) => {
   if (typeof key !== "string") return;
+  if (key.length === 0 || key.length > MAX_RUNTIME_KEY_LENGTH) return;
   sendKeyToRuntime(key);
 });
 
@@ -119,7 +128,10 @@ ipcMain.on("game:resize", (_event, size) => {
   const cols = Number(size.cols);
   const rows = Number(size.rows);
   if (!Number.isFinite(cols) || !Number.isFinite(rows)) return;
-  resizeEmbeddedRuntime(Math.max(40, Math.floor(cols)), Math.max(20, Math.floor(rows)));
+  resizeEmbeddedRuntime(
+    clampNumber(Math.floor(cols), MIN_RUNTIME_COLS, MAX_RUNTIME_COLS),
+    clampNumber(Math.floor(rows), MIN_RUNTIME_ROWS, MAX_RUNTIME_ROWS)
+  );
 });
 
 ipcMain.handle("game:keymap", () => KEY);

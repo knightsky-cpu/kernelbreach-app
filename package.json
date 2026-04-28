@@ -11,7 +11,7 @@
     "email": "wifiknight@proton.me"
   },
   "kernelBreach": {
-    "devMenuEnabled": true
+    "devMenuEnabled": false
   },
   "scripts": {
     "start": "electron app/electron/main.mjs",

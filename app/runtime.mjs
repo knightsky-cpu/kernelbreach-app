@@ -1298,6 +1298,133 @@ function normalizeCreatureSpecies(creature) {
     skills: getSpeciesSkills(species)
   };
 }
+function isPlainObject(value) {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+function clampInt(value, min, max, fallback = min) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.max(min, Math.min(max, Math.floor(number)));
+}
+function sanitizeBoolean(value, fallback = false) {
+  return typeof value === "boolean" ? value : fallback;
+}
+function sanitizeString(value, maxLength, fallback = "") {
+  if (typeof value !== "string") return fallback;
+  return value.slice(0, maxLength);
+}
+function sanitizePlayerName(value) {
+  const name = typeof value === "string" ? value.trim() : "";
+  return isValidCharacterName(name) ? name : "root";
+}
+function sanitizePosition(value, zone) {
+  const fallback = ZONE_CONFIGS[zone]?.playerEntry?.up ?? { x: 19, y: 12 };
+  if (!isPlainObject(value)) return { ...fallback };
+  return {
+    x: clampInt(value.x, 0, MAP_WIDTH - 1, fallback.x),
+    y: clampInt(value.y, 0, MAP_HEIGHT - 1, fallback.y)
+  };
+}
+function sanitizeItems(items) {
+  const safeItems = {};
+  if (!isPlainObject(items)) return safeItems;
+  for (const id of Object.keys(ITEMS)) {
+    const count = clampInt(items[id], 0, 999, 0);
+    if (count > 0) safeItems[id] = count;
+  }
+  return safeItems;
+}
+function sanitizeScriptList(scripts) {
+  if (!Array.isArray(scripts)) return [];
+  return Array.from(new Set(scripts.filter((scriptId) => typeof scriptId === "string" && !!SCRIPT_DEFS[scriptId])));
+}
+function sanitizeZoneList(zones) {
+  if (!Array.isArray(zones)) return [];
+  return Array.from(new Set(zones.filter((zone) => typeof zone === "string" && !!ZONE_CONFIGS[zone])));
+}
+function sanitizeDefeatedBosses(defeatedBosses) {
+  if (!Array.isArray(defeatedBosses)) return [];
+  const knownBosses = new Set(BOSS_SEQUENCE.map((boss) => boss.species));
+  return Array.from(new Set(defeatedBosses.map(canonicalSpeciesName).filter((species) => knownBosses.has(species))));
+}
+function sanitizeHiddenScriptsByZone(value, finalSecretKey) {
+  const generated = buildZoneScriptLocations(finalSecretKey);
+  if (!isPlainObject(value)) return generated;
+  const safe = { ...generated };
+  for (const zone of Object.keys(generated)) {
+    const entry = value[zone];
+    if (!isPlainObject(entry)) continue;
+    if (!SCRIPT_DEFS[entry.scriptId]) continue;
+    safe[zone] = {
+      zone,
+      scriptId: entry.scriptId,
+      x: clampInt(entry.x, 0, MAP_WIDTH - 1, generated[zone].x),
+      y: clampInt(entry.y, 0, MAP_HEIGHT - 1, generated[zone].y)
+    };
+  }
+  return safe;
+}
+function sanitizeKeyPieces(keyPieces, finalSecretKey) {
+  if (!Array.isArray(keyPieces)) return [];
+  const safe = [];
+  for (const piece of keyPieces) {
+    if (!isPlainObject(piece)) continue;
+    const bossSpecies = canonicalSpeciesName(piece.bossSpecies);
+    const bossMeta = FINAL_KEY_BOSSES.find((boss) => boss.species === bossSpecies);
+    if (!bossMeta) continue;
+    const expectedPiece = getBossKeyPiece(finalSecretKey, bossSpecies);
+    const candidatePiece = typeof piece.piece === "string" ? piece.piece.slice(0, 2) : expectedPiece;
+    if (!/^[A-Z0-9]{2}$/.test(candidatePiece)) continue;
+    safe.push({
+      bossSpecies,
+      bossName: bossMeta.bossName,
+      piece: candidatePiece
+    });
+  }
+  return safe;
+}
+function sanitizeCreature(creature) {
+  if (!isPlainObject(creature)) return null;
+  const species = canonicalSpeciesName(creature.species);
+  if (!SPECIES_NAMES[species]) return null;
+  const level = clampInt(creature.level, 1, 50, 1);
+  const baseStr = clampInt(creature.baseStr, 1, 99, 1);
+  const baseCon = clampInt(creature.baseCon, 1, 99, 1);
+  const allocatedStr = clampInt(creature.allocatedStr, 0, 99, 0);
+  const allocatedCon = clampInt(creature.allocatedCon, 0, 99, 0);
+  const maxHp = clampInt(creature.maxHp, 1, 9999, calcMaxHp(level, baseCon, allocatedCon));
+  const currentHp = clampInt(creature.currentHp, 0, maxHp, maxHp);
+  const rarity = Object.hasOwn(RARITY_BASE_STAT, creature.rarity) ? creature.rarity : "common";
+  const eye = EYES.includes(creature.eye) ? creature.eye : EYES[0];
+  const hat = HATS.includes(creature.hat) ? creature.hat : "none";
+  return {
+    id: sanitizeString(creature.id, 64, generateId()) || generateId(),
+    species,
+    nickname: sanitizeString(creature.nickname, 32, species) || species,
+    eye,
+    hat,
+    rarity,
+    level,
+    maxHp,
+    currentHp,
+    baseStr,
+    baseCon,
+    allocatedStr,
+    allocatedCon,
+    xp: clampInt(creature.xp, 0, 999999, 0),
+    xpToNext: clampInt(creature.xpToNext, 0, 999999, xpForLevel(Math.min(50, level + 1))),
+    skillPoints: clampInt(creature.skillPoints, 0, 999, 0),
+    isBoss: sanitizeBoolean(creature.isBoss, false),
+    shiny: sanitizeBoolean(creature.shiny, false),
+    skills: Array.isArray(creature.skills) && creature.skills.some((skill) => SKILLS[skill])
+      ? creature.skills.filter((skill) => typeof skill === "string" && SKILLS[skill]).slice(0, 4)
+      : getSpeciesSkills(species)
+  };
+}
+function sanitizeCreatureList(creatures, maxLength) {
+  if (!Array.isArray(creatures)) return [];
+  return creatures.map(sanitizeCreature).filter(Boolean).slice(0, maxLength);
+}
 function rollWildCreature(zone, species, targetLevel) {
   const seed = fnv1a(`${species}-${Date.now()}-${Math.random()}`);
   const rng = mulberry32(seed);
@@ -1469,18 +1596,22 @@ function normalizeFinalRewardCreature(creature) {
   };
 }
 function normalizePlayerProgress(player) {
-  const finalSecretKey = normalizeFinalSecretKey(player.finalSecretKey);
-  const defeatedBosses = Array.from(new Set((player.defeatedBosses ?? []).map(canonicalSpeciesName)));
-  const hiddenScriptsByZone = { ...buildZoneScriptLocations(finalSecretKey), ...(player.hiddenScriptsByZone ?? {}) };
-  const discoveredScripts = Array.isArray(player.discoveredScripts) ? [...player.discoveredScripts] : [];
-  let recoveredScriptZones = Array.isArray(player.recoveredScriptZones) ? [...player.recoveredScriptZones] : [];
+  if (!isPlainObject(player)) return null;
+  const finalSecretKey = normalizeFinalSecretKey(typeof player.finalSecretKey === "string" ? player.finalSecretKey : "");
+  const currentZone = ZONE_CONFIGS[player.currentZone] ? player.currentZone : "central";
+  const party = sanitizeCreatureList(player.party, 4).map(normalizeFinalRewardCreature).filter(Boolean);
+  if (party.length === 0) return null;
+  const defeatedBosses = sanitizeDefeatedBosses(player.defeatedBosses);
+  const hiddenScriptsByZone = sanitizeHiddenScriptsByZone(player.hiddenScriptsByZone, finalSecretKey);
+  const discoveredScripts = sanitizeScriptList(player.discoveredScripts);
+  let recoveredScriptZones = sanitizeZoneList(player.recoveredScriptZones);
   for (const zone of Object.keys(hiddenScriptsByZone)) {
     const scriptId = hiddenScriptsByZone[zone]?.scriptId;
     if (scriptId && discoveredScripts.includes(scriptId) && !recoveredScriptZones.includes(zone)) {
       recoveredScriptZones.push(zone);
     }
   }
-  let keyPieces = Array.isArray(player.keyPieces) ? player.keyPieces.map((piece) => {
+  let keyPieces = sanitizeKeyPieces(player.keyPieces, finalSecretKey).map((piece) => {
     const bossSpecies = canonicalSpeciesName(piece.bossSpecies);
     const bossMeta = BOSS_SEQUENCE.find((boss) => boss.species === bossSpecies);
     return {
@@ -1488,7 +1619,7 @@ function normalizePlayerProgress(player) {
       bossSpecies,
       bossName: bossMeta?.bossName ?? piece.bossName
     };
-  }) : [];
+  });
   keyPieces = keyPieces.filter((piece) => FINAL_KEY_BOSSES.some((boss) => boss.species === piece.bossSpecies) && piece.piece);
   for (const boss of FINAL_KEY_BOSSES) {
     if (!defeatedBosses.includes(boss.species)) continue;
@@ -1501,22 +1632,30 @@ function normalizePlayerProgress(player) {
   }
   keyPieces.sort((a, b) => BOSS_SEQUENCE.findIndex((boss) => boss.species === a.bossSpecies) - BOSS_SEQUENCE.findIndex((boss) => boss.species === b.bossSpecies));
   return {
-    ...player,
-    party: (player.party ?? []).map(normalizeFinalRewardCreature),
-    storage: (player.storage ?? []).map(normalizeFinalRewardCreature),
+    name: sanitizePlayerName(player.name),
+    id: sanitizeString(player.id, 32, generateId()) || generateId(),
+    party,
+    storage: sanitizeCreatureList(player.storage, 500).map(normalizeFinalRewardCreature).filter(Boolean),
+    gold: clampInt(player.gold, 0, 9999999, 0),
+    items: sanitizeItems(player.items),
     defeatedBosses,
-    targetLog: player.targetLog ?? [],
+    targetLog: Array.isArray(player.targetLog) ? player.targetLog.filter((log) => typeof log === "string").slice(0, BOSS_SEQUENCE.length) : [],
     discoveredScripts,
     hiddenScriptsByZone,
     recoveredScriptZones,
     keyPieces,
     finalSecretKey,
-    finalKeyUnlocked: player.finalKeyUnlocked ?? player.secretUnlocked ?? false,
-    secretUnlocked: player.secretUnlocked ?? player.finalKeyUnlocked ?? false,
-    noEncounters: player.noEncounters ?? false,
-    bgmMuted: player.bgmMuted ?? false,
-    audioDebug: player.audioDebug ?? false,
-    verboseDebug: player.verboseDebug ?? false
+    finalKeyUnlocked: sanitizeBoolean(player.finalKeyUnlocked ?? player.secretUnlocked, false),
+    secretUnlocked: sanitizeBoolean(player.secretUnlocked ?? player.finalKeyUnlocked, false),
+    position: sanitizePosition(player.position, currentZone),
+    currentZone,
+    playtime: clampInt(player.playtime, 0, 999999999, 0),
+    devMode: sanitizeBoolean(player.devMode, false),
+    allDungeonsUnlocked: sanitizeBoolean(player.allDungeonsUnlocked, false),
+    noEncounters: sanitizeBoolean(player.noEncounters, false),
+    bgmMuted: sanitizeBoolean(player.bgmMuted, false),
+    audioDebug: sanitizeBoolean(player.audioDebug, false),
+    verboseDebug: sanitizeBoolean(player.verboseDebug, false)
   };
 }
 function applyBossProgress(player, bossSpecies) {
@@ -2409,6 +2548,7 @@ import * as path from "path";
 import { spawn, spawnSync } from "child_process";
 import { fileURLToPath } from "url";
 var MAX_SAVE_SLOTS = 3;
+var SAVE_SCHEMA_VERSION = 1;
 function getSaveDir() {
   const home = os.homedir();
   const platform = process.platform;
@@ -2431,9 +2571,54 @@ function ensureSaveDir() {
     fs.mkdirSync(dir, { recursive: true });
   }
 }
+function saveBackupTimestamp() {
+  const d = new Date();
+  const pad2 = (value) => String(value).padStart(2, "0");
+  return `${d.getFullYear()}${pad2(d.getMonth() + 1)}${pad2(d.getDate())}-${pad2(d.getHours())}${pad2(d.getMinutes())}${pad2(d.getSeconds())}`;
+}
+function backupCorruptSave(savePath, reason) {
+  try {
+    const parsed = path.parse(savePath);
+    let backupPath = path.join(parsed.dir, `${parsed.name}.corrupt-${saveBackupTimestamp()}${parsed.ext}`);
+    let suffix = 1;
+    while (fs.existsSync(backupPath)) {
+      backupPath = path.join(parsed.dir, `${parsed.name}.corrupt-${saveBackupTimestamp()}-${suffix++}${parsed.ext}`);
+    }
+    fs.renameSync(savePath, backupPath);
+    engineDebug(`corrupt save backed up reason=${reason} path=${backupPath}`);
+  } catch (error) {
+    engineDebug(`corrupt save backup failed reason=${reason} error=${error?.message ?? error}`);
+  }
+}
+function parseSaveFile(savePath, { backupOnFailure = false } = {}) {
+  try {
+    const raw = fs.readFileSync(savePath, "utf8");
+    const parsed = JSON.parse(raw);
+    if (!isPlainObject(parsed) || !isPlainObject(parsed.player)) {
+      if (backupOnFailure) backupCorruptSave(savePath, "invalid-shape");
+      return null;
+    }
+    const player = normalizePlayerProgress(parsed.player);
+    if (!player) {
+      if (backupOnFailure) backupCorruptSave(savePath, "invalid-player");
+      return null;
+    }
+    return {
+      version: clampInt(parsed.version, 0, SAVE_SCHEMA_VERSION, 0) || 0,
+      slot: clampInt(parsed.slot, 1, MAX_SAVE_SLOTS, 1),
+      savedAt: clampInt(parsed.savedAt, 0, Date.now(), Date.now()),
+      player
+    };
+  } catch (error) {
+    if (backupOnFailure) backupCorruptSave(savePath, "parse-failed");
+    engineDebug(`save parse failed path=${savePath} error=${error?.message ?? error}`);
+    return null;
+  }
+}
 function saveGame(state2, slot) {
   ensureSaveDir();
   const saveData = {
+    version: SAVE_SCHEMA_VERSION,
     slot,
     savedAt: Date.now(),
     player: state2.player
@@ -2444,18 +2629,9 @@ function saveGame(state2, slot) {
 function loadGame(slot) {
   const p = getSlotPath(slot);
   if (!fs.existsSync(p)) return null;
-  try {
-    const raw = fs.readFileSync(p, "utf8");
-    const parsed = JSON.parse(raw);
-    if (parsed?.player) {
-      parsed.player = normalizePlayerProgress(parsed.player);
-    }
-    engineDebug(`load slot=${slot} player=${parsed?.player?.name ?? "unknown"} zone=${parsed?.player?.currentZone ?? "unknown"}`);
-    return parsed;
-  } catch {
-    engineDebug(`load failed slot=${slot}`);
-    return null;
-  }
+  const parsed = parseSaveFile(p, { backupOnFailure: true });
+  engineDebug(`load slot=${slot} player=${parsed?.player?.name ?? "unknown"} zone=${parsed?.player?.currentZone ?? "unknown"}`);
+  return parsed;
 }
 function getSaveSlots() {
   return Array.from({ length: MAX_SAVE_SLOTS }, (_, i) => {
@@ -2465,8 +2641,8 @@ function getSaveSlots() {
       return { slot, exists: false };
     }
     try {
-      const raw = fs.readFileSync(p, "utf8");
-      const data = JSON.parse(raw);
+      const data = parseSaveFile(p, { backupOnFailure: true });
+      if (!data) return { slot, exists: false };
       const player = data.player;
       return {
         slot,

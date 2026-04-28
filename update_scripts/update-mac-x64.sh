@@ -3,16 +3,25 @@ set -euo pipefail
 
 REPO="knightsky-cpu/kernelbreach-app"
 ASSET_NAME="kernelbreach-macos-x64.dmg"
+CHECKSUMS_NAME="SHA256SUMS"
+CHECKSUMS_SIG_NAME="SHA256SUMS.minisig"
+MINISIGN_PUBLIC_KEY="${KERNELBREACH_MINISIGN_PUBLIC_KEY:-RWRg56ToZFyQ7H4pwaCMib4dBi8uLzBqpfLQcYg7hePzcSyJEjDNsIIU}"
 APP_NAME="Kernel Breach.app"
 INSTALL_DIR="${INSTALL_DIR:-/Applications}"
 VERSION_DIR="${HOME}/.kernelbreach"
 VERSION_FILE="${VERSION_DIR}/release-tag-mac-x64"
 
+info() {
+  printf '[Kernel Breach updater] %s\n' "$*"
+}
+
+fail() {
+  printf '[Kernel Breach updater] ERROR: %s\n' "$*" >&2
+  exit 1
+}
+
 require_command() {
-  command -v "$1" >/dev/null 2>&1 || {
-    echo "Missing required command: $1" >&2
-    exit 1
-  }
+  command -v "$1" >/dev/null 2>&1 || fail "Missing required command: $1"
 }
 
 latest_release_json() {
@@ -24,7 +33,8 @@ json_tag_name() {
 }
 
 json_asset_url() {
-  awk -v asset="$ASSET_NAME" '
+  local asset_name="$1"
+  awk -v asset="$asset_name" '
     /^[[:space:]]*"name":[[:space:]]*"/ {
       name=$0
       sub(/^.*"name":[[:space:]]*"/, "", name)
@@ -40,19 +50,53 @@ json_asset_url() {
   '
 }
 
+verify_minisign_key_configured() {
+  [[ -n "$MINISIGN_PUBLIC_KEY" ]] || fail "Updater verification public key is not configured."
+}
+
+download_asset() {
+  local release_json="$1"
+  local asset_name="$2"
+  local output_path="$3"
+  local url
+  url="$(printf '%s\n' "$release_json" | json_asset_url "$asset_name")"
+  [[ -n "$url" ]] || fail "Could not find release asset: $asset_name"
+  info "Downloading ${asset_name}..."
+  curl -fL "$url" -o "$output_path"
+}
+
+verify_downloaded_artifact() {
+  local artifact_path="$1"
+  local checksums_path="$2"
+  local signature_path="$3"
+  info "Verifying signed checksum manifest..."
+  minisign -Vm "$checksums_path" -x "$signature_path" -P "$MINISIGN_PUBLIC_KEY" >/dev/null
+  info "Verifying ${ASSET_NAME} SHA256..."
+  local expected_hash
+  expected_hash="$(awk -v asset="$ASSET_NAME" '$2 == asset { print $1; exit }' "$checksums_path")"
+  [[ -n "$expected_hash" ]] || fail "${ASSET_NAME} is not listed in ${CHECKSUMS_NAME}."
+  local actual_hash
+  actual_hash="$(shasum -a 256 "$artifact_path" | awk '{ print $1 }')"
+  [[ "$actual_hash" == "$expected_hash" ]] || fail "SHA256 mismatch for ${ASSET_NAME}."
+}
+
+info "Checking required tools..."
 require_command curl
 require_command hdiutil
+require_command minisign
+require_command shasum
+verify_minisign_key_configured
 
+info "Checking latest Kernel Breach release..."
 release_json="$(latest_release_json)"
 latest_tag="$(printf '%s\n' "$release_json" | json_tag_name)"
-download_url="$(printf '%s\n' "$release_json" | json_asset_url)"
 current_tag="$(cat "$VERSION_FILE" 2>/dev/null || true)"
 
-[[ -n "$latest_tag" ]] || { echo "Could not determine latest release tag." >&2; exit 1; }
-[[ -n "$download_url" ]] || { echo "Could not find release asset: $ASSET_NAME" >&2; exit 1; }
+[[ -n "$latest_tag" ]] || fail "Could not determine latest release tag."
+[[ -n "$(printf '%s\n' "$release_json" | json_asset_url "$ASSET_NAME")" ]] || fail "Could not find release asset: $ASSET_NAME"
 
 if [[ "$current_tag" == "$latest_tag" ]]; then
-  echo "Kernel Breach is already up to date (${latest_tag})."
+  info "Kernel Breach is already up to date (${latest_tag})."
   exit 0
 fi
 
@@ -67,20 +111,25 @@ cleanup() {
 trap cleanup EXIT
 
 dmg_path="${tmp_dir}/${ASSET_NAME}"
-echo "Downloading Kernel Breach ${latest_tag}..."
-curl -fL "$download_url" -o "$dmg_path"
+checksums_path="${tmp_dir}/${CHECKSUMS_NAME}"
+signature_path="${tmp_dir}/${CHECKSUMS_SIG_NAME}"
+info "Preparing update to ${latest_tag}."
+download_asset "$release_json" "$ASSET_NAME" "$dmg_path"
+download_asset "$release_json" "$CHECKSUMS_NAME" "$checksums_path"
+download_asset "$release_json" "$CHECKSUMS_SIG_NAME" "$signature_path"
+verify_downloaded_artifact "$dmg_path" "$checksums_path" "$signature_path"
 
-echo "Mounting update..."
+info "Mounting update..."
 mount_output="$(hdiutil attach "$dmg_path" -nobrowse)"
 mount_point="$(printf '%s\n' "$mount_output" | awk '/\/Volumes\// { for (i = 3; i <= NF; i++) printf "%s%s", (i == 3 ? "" : " "), $i; print ""; exit }')"
-[[ -n "$mount_point" ]] || { echo "Could not locate mounted DMG volume." >&2; exit 1; }
-[[ -d "${mount_point}/${APP_NAME}" ]] || { echo "Mounted DMG does not contain ${APP_NAME}." >&2; exit 1; }
+[[ -n "$mount_point" ]] || fail "Could not locate mounted DMG volume."
+[[ -d "${mount_point}/${APP_NAME}" ]] || fail "Mounted DMG does not contain ${APP_NAME}."
 
-echo "Installing to ${INSTALL_DIR}/${APP_NAME}..."
+info "Installing to ${INSTALL_DIR}/${APP_NAME}..."
 mkdir -p "$INSTALL_DIR"
 rm -rf "${INSTALL_DIR}/${APP_NAME}"
 cp -R "${mount_point}/${APP_NAME}" "$INSTALL_DIR/"
 
 mkdir -p "$VERSION_DIR"
 printf '%s\n' "$latest_tag" > "$VERSION_FILE"
-echo "Kernel Breach updated to ${latest_tag}."
+info "Kernel Breach updated to ${latest_tag}."

@@ -8,6 +8,9 @@ $MinisignPublicKey = if ($env:KERNELBREACH_MINISIGN_PUBLIC_KEY) { $env:KERNELBRE
 $VersionDir = Join-Path $env:APPDATA "KernelBreach"
 $VersionFile = Join-Path $VersionDir "release-tag-win64.txt"
 $ApiUrl = "https://api.github.com/repos/$Repo/releases/latest"
+$ScriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
+$BundledMinisign = Join-Path $ScriptDir "minisign.exe"
+$MinisignCommand = $null
 
 function Write-Info {
   param([string]$Message)
@@ -24,6 +27,19 @@ function Require-Command {
   if (-not (Get-Command $CommandName -ErrorAction SilentlyContinue)) {
     Fail "Missing required command: $CommandName"
   }
+}
+
+function Resolve-Minisign {
+  if (Test-Path $BundledMinisign) {
+    Write-Info "Using bundled minisign.exe."
+    return $BundledMinisign
+  }
+  $systemMinisign = Get-Command "minisign" -ErrorAction SilentlyContinue
+  if ($systemMinisign) {
+    Write-Info "Using system minisign."
+    return $systemMinisign.Source
+  }
+  Fail "Missing minisign verifier. Use the Windows release zip, which includes minisign.exe, or install minisign with Scoop or Chocolatey: scoop install minisign OR choco install minisign"
 }
 
 function Get-ReleaseAsset {
@@ -54,7 +70,7 @@ function Verify-DownloadedArtifact {
     [string]$SignaturePath
   )
   Write-Info "Verifying signed checksum manifest..."
-  & minisign -Vm $ChecksumsPath -x $SignaturePath -P $MinisignPublicKey | Out-Null
+  & $MinisignCommand -Vm $ChecksumsPath -x $SignaturePath -P $MinisignPublicKey | Out-Null
   if ($LASTEXITCODE -ne 0) {
     Fail "Signature verification failed for $ChecksumsName."
   }
@@ -72,7 +88,7 @@ function Verify-DownloadedArtifact {
 }
 
 Write-Info "Checking required tools..."
-Require-Command "minisign"
+$MinisignCommand = Resolve-Minisign
 if (-not $MinisignPublicKey) {
   Fail "Updater verification public key is not configured."
 }

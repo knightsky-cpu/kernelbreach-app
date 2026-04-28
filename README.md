@@ -54,7 +54,29 @@ This public repository is intended for players who want to inspect the game or u
 
 Kernel Breach does not auto-update or access the internet from inside the game. Optional updater scripts are provided in `update_scripts/` for players who want a quicker way to pull the latest release asset.
 
-Release zip packages also include the updater script for that platform, so new players who download a zip already have the update workflow available in the game folder.
+The updater scripts contact GitHub Releases, download the latest package for your platform, and verify the download with signed SHA256 checksums before installing or replacing anything. Save files are stored separately from the app and are not removed by updating.
+
+Release zip packages also include the updater script for that platform, so new players who download a zip already have the update workflow available in the game folder. The Windows zip also includes `minisign.exe`, which the Windows updater uses automatically for checksum verification.
+
+If you do not want to use the updater dependency path, download the newest release zip/package manually from GitHub Releases and replace or reinstall the game yourself. Manual downloads do not require `minisign`.
+
+The verified updater path requires `minisign`:
+
+```bash
+# macOS
+brew install minisign
+
+# Debian/Ubuntu Linux
+sudo apt install minisign
+```
+
+Windows players using the release zip do not need a separate `minisign` install because `minisign.exe` is bundled next to `update-win64.ps1`. If you are using only the PowerShell script without the release zip, install Minisign first with Scoop or Chocolatey:
+
+```powershell
+scoop install minisign
+# or
+choco install minisign
+```
 
 Run the updater for your platform from any directory where you saved the script. On macOS or Linux, make the script executable first:
 
@@ -78,13 +100,13 @@ If you are running from a cloned copy of this repository, you can also run the s
 ./update_scripts/update-linux64.sh
 ```
 
-On Windows, run PowerShell from the directory where you saved the script:
+On Windows, run PowerShell from the directory where you saved the script. If you downloaded the Windows release zip, keep `minisign.exe` in the same folder as `update-win64.ps1`:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\update-win64.ps1
 ```
 
-The updater checks the latest GitHub release, exits if you are already current, or downloads and installs the latest direct release asset for your platform. Save files are stored separately from the app and are not removed by updating.
+The updater prints each step as it runs, exits if you are already current, and aborts if the signed checksum verification fails.
 
 ## Controls
 

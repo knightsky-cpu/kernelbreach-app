@@ -21,7 +21,13 @@ fail() {
 }
 
 require_command() {
-  command -v "$1" >/dev/null 2>&1 || fail "Missing required command: $1"
+  if command -v "$1" >/dev/null 2>&1; then
+    return 0
+  fi
+  if [[ "$1" == "minisign" ]]; then
+    fail "Missing minisign verifier. Install it once with: brew install minisign"
+  fi
+  fail "Missing required command: $1"
 }
 
 latest_release_json() {

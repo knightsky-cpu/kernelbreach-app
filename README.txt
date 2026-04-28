@@ -17,13 +17,19 @@ Updating:
 - Kernel Breach does not auto-update or access the internet from inside the game.
 - Optional updater scripts are available in the update_scripts folder of the public repository.
 - Release zip packages also include the updater script for that platform, so new players who download a zip already have the update workflow available in the game folder.
+- The updater scripts contact GitHub Releases and verify downloads with signed SHA256 checksums before installing or replacing anything.
+- If you do not want to use the updater dependency path, download the newest release zip/package manually from GitHub Releases and replace or reinstall the game yourself. Manual downloads do not require minisign.
+- The verified updater path requires minisign.
+- macOS minisign install: brew install minisign
+- Debian/Ubuntu Linux minisign install: sudo apt install minisign
+- Windows release zips include minisign.exe next to update-win64.ps1. If you only have the PowerShell script without the release zip, install Minisign with Scoop or Chocolatey: scoop install minisign OR choco install minisign
 - The scripts can be run from any directory where you saved them, such as ~/Downloads.
 - On macOS or Linux, run chmod +x on the script before launching it.
 - macOS Apple Silicon: ./update-mac-arm64.sh
 - macOS Intel: ./update-mac-x64.sh
 - Linux x64: ./update-linux64.sh
 - Windows x64: powershell -ExecutionPolicy Bypass -File .\update-win64.ps1
-- The updater checks the latest GitHub release and exits if you are already current.
+- The updater prints each step, exits if you are already current, and aborts if signed checksum verification fails.
 - Save files are stored separately from the app and are not removed by updating.
 
 Controls:

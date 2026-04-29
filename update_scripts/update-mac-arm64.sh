@@ -3,8 +3,8 @@ set -euo pipefail
 
 REPO="knightsky-cpu/kernelbreach-app"
 ASSET_NAME="kernelbreach-macos-arm64.dmg"
-CHECKSUMS_NAME="SHA256SUMS"
-CHECKSUMS_SIG_NAME="SHA256SUMS.minisig"
+CHECKSUMS_NAME="SHA256SUMS-macos-windows"
+CHECKSUMS_SIG_NAME="SHA256SUMS-macos-windows.minisig"
 MINISIGN_PUBLIC_KEY="${KERNELBREACH_MINISIGN_PUBLIC_KEY:-RWRxNr1zm5N4U9r7LLrM7SJzAQnAUCAhDGhY0btcYYsLHkCCa7mqhY4l}"
 APP_NAME="Kernel Breach.app"
 INSTALL_DIR="${INSTALL_DIR:-/Applications}"

@@ -2,8 +2,8 @@ $ErrorActionPreference = "Stop"
 
 $Repo = "knightsky-cpu/kernelbreach-app"
 $AssetName = "kernelbreach-win-x64.exe"
-$ChecksumsName = "SHA256SUMS"
-$ChecksumsSigName = "SHA256SUMS.minisig"
+$ChecksumsName = "SHA256SUMS-macos-windows"
+$ChecksumsSigName = "SHA256SUMS-macos-windows.minisig"
 $MinisignPublicKey = if ($env:KERNELBREACH_MINISIGN_PUBLIC_KEY) { $env:KERNELBREACH_MINISIGN_PUBLIC_KEY } else { "RWRxNr1zm5N4U9r7LLrM7SJzAQnAUCAhDGhY0btcYYsLHkCCa7mqhY4l" }
 $VersionDir = Join-Path $env:APPDATA "KernelBreach"
 $VersionFile = Join-Path $VersionDir "release-tag-win64.txt"

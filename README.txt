@@ -33,12 +33,20 @@ Updating:
 - Save files are stored separately from the app and are not removed by updating.
 
 Controls:
-- WASD or arrow keys: move
-- E: interact / enter breach site
+- Arrow keys: move / navigate menus / scroll terminal panels
 - M: menu
 - I: inventory
-- Enter or Space: confirm
-- X or Escape: back
+- Enter: confirm / interact / execute terminal command
+- Escape: back / cancel / disconnect from terminal panels
+- Space: text input only
+
+Game Log and terminals:
+- The menu includes a Game Log for recent system events.
+- Show Coordinates displays your current location in the system panel.
+- Recovered scripts run through the Script Terminal. Type clear to clear the terminal output.
+- Hidden flag terminals can be found in every overworld zone.
+- Hidden flag terminal commands: ls, ls -la, cd, pwd, cat, sudo -s, clear.
+- Completing a hidden flag terminal awards an XP-Patch, which levels one exploit by 1.
 
 Notes:
 - Save files are written to an OS-specific app data folder:

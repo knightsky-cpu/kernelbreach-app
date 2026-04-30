@@ -112,12 +112,20 @@ The updater prints each step as it runs, exits if you are already current, and a
 
 ## Controls
 
-- WASD or arrow keys: move
-- E: interact / enter breach site
+- Arrow keys: move / navigate menus / scroll terminal panels
 - M: menu
 - I: inventory
-- Enter or Space: confirm
-- X or Escape: back
+- Enter: confirm / interact / execute terminal command
+- Escape: back / cancel / disconnect from terminal panels
+- Space: text input only
+
+## Game Log And Terminals
+
+- The menu includes a Game Log for recent system events.
+- Show Coordinates displays your current location in the system panel.
+- Recovered scripts run through the Script Terminal. Type `clear` to clear the terminal output.
+- Hidden flag terminals can be found in every overworld zone. They use shell-like commands: `ls`, `ls -la`, `cd`, `pwd`, `cat`, `sudo -s`, and `clear`.
+- Completing a hidden flag terminal awards an XP-Patch, which levels one exploit by 1.
 
 ## Notes
 

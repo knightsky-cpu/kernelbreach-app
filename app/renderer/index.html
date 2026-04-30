@@ -11,6 +11,13 @@
       <div class="frame-wrap">
         <pre id="screen" aria-live="polite"></pre>
       </div>
+      <section id="debug-panel" class="debug-panel" aria-label="Debug log" hidden>
+        <div class="debug-panel__header">Debug Log</div>
+        <div id="debug-output" class="debug-output">
+          <pre id="debug-scroll" class="debug-scroll"></pre>
+          <pre id="debug-pinned" class="debug-pinned"></pre>
+        </div>
+      </section>
     </main>
     <script type="module" src="./renderer.js"></script>
   </body>

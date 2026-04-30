@@ -4,6 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import {
   KEY,
+  getDebugLogSnapshot,
   resizeEmbeddedRuntime,
   sendKeyToRuntime,
   setEmbeddedQuitHandler,
@@ -90,6 +91,7 @@ app.whenReady().then(async () => {
   const sendFrame = (lines) => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
     mainWindow.webContents.send("game:frame", lines);
+    mainWindow.webContents.send("game:debug-log", getDebugLogSnapshot());
   };
 
   const initialSize = estimateGridSize(mainWindow);

@@ -1,5 +1,11 @@
 const screen = document.getElementById("screen");
 const frameWrap = document.querySelector(".frame-wrap");
+const debugPanel = document.getElementById("debug-panel");
+const debugPanelHeader = debugPanel?.querySelector(".debug-panel__header");
+const debugOutput = document.getElementById("debug-output");
+const debugScroll = document.getElementById("debug-scroll");
+const debugPinned = document.getElementById("debug-pinned");
+let lastGridSize = null;
 
 const ESCAPE_HTML = {
   "&": "&amp;",
@@ -120,12 +126,15 @@ function measureGrid() {
   const rows = Math.floor(usableHeight / lineHeight);
   return {
     cols: Math.max(40, cols),
-    rows: Math.max(20, rows)
+    rows: Math.max(20, rows - 1)
   };
 }
 
 function syncSize() {
-  window.kernelBreach.sendResize(measureGrid());
+  const size = measureGrid();
+  if (lastGridSize && lastGridSize.cols === size.cols && lastGridSize.rows === size.rows) return;
+  lastGridSize = size;
+  window.kernelBreach.sendResize(size);
 }
 
 window.kernelBreach.onFrame((lines) => {
@@ -135,6 +144,62 @@ window.kernelBreach.onFrame((lines) => {
   screen.style.width = `${Math.max(1, maxLineLength)}ch`;
   screen.style.margin = "0 auto";
   screen.innerHTML = ansiToHtml(lines.join("\n"));
+});
+
+window.kernelBreach.onDebugLog((snapshot) => {
+  if (!debugPanel || !debugOutput || !debugScroll || !debugPinned) return;
+  const terminal = snapshot?.terminal && typeof snapshot.terminal === "object" ? snapshot.terminal : null;
+  const pinned = Array.isArray(snapshot?.pinned) ? snapshot.pinned : [];
+  const entries = Array.isArray(snapshot?.entries) ? snapshot.entries : [];
+  if (!snapshot?.enabled) {
+    debugPanel.hidden = true;
+    debugScroll.textContent = "";
+    debugPinned.textContent = "";
+    requestAnimationFrame(syncSize);
+    return;
+  }
+  if (terminal) {
+    const terminalLines = Array.isArray(terminal.lines) ? terminal.lines : [];
+    const input = typeof terminal.input === "string" ? terminal.input : "";
+    const footer = typeof terminal.footer === "string" ? terminal.footer : "";
+    debugPanel.hidden = false;
+    if (debugPanelHeader) {
+      debugPanelHeader.textContent = terminal.title || "Terminal";
+    }
+    debugScroll.textContent = terminalLines.join("\n");
+    debugPinned.textContent = [input, footer].filter(Boolean).join("\n");
+    requestAnimationFrame(() => {
+      debugScroll.scrollTop = debugScroll.scrollHeight;
+      syncSize();
+    });
+    return;
+  }
+  if (pinned.length === 0 && entries.length === 0) {
+    debugPanel.hidden = true;
+    debugScroll.textContent = "";
+    debugPinned.textContent = "";
+    requestAnimationFrame(syncSize);
+    return;
+  }
+  debugPanel.hidden = false;
+  if (debugPanelHeader) {
+    debugPanelHeader.textContent = entries.length > 0 ? "System Panel / Debug Log" : "System Panel";
+  }
+  const pinnedLines = pinned.map((entry) => {
+    const channel = entry?.channel ?? "system";
+    const message = entry?.message ?? "";
+    return `[${channel}] ${message}`;
+  });
+  const debugLines = entries.map((entry) => {
+    const channel = entry?.channel ?? "debug";
+    const at = entry?.at ?? "";
+    const message = entry?.message ?? "";
+    return at ? `[${channel}] ${at} ${message}` : `[${channel}] ${message}`;
+  });
+  debugScroll.textContent = debugLines.join("\n");
+  debugPinned.textContent = pinnedLines.join("\n");
+  debugScroll.scrollTop = debugScroll.scrollHeight;
+  requestAnimationFrame(syncSize);
 });
 
 window.addEventListener("keydown", (event) => {

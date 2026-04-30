@@ -38,16 +38,6 @@ var KEY = {
   ESCAPE: "\x1B",
   BACKSPACE: "\x7F",
   BACKSPACE2: "\b",
-  w: "w",
-  s: "s",
-  a: "a",
-  d: "d",
-  W: "W",
-  S: "S",
-  A: "A",
-  D: "D",
-  e: "e",
-  E: "E",
   m: "m",
   M: "M",
   i: "i",
@@ -58,8 +48,8 @@ var KEY = {
   F: "F",
   c: "c",
   C: "C",
-  x: "x",
-  X: "X",
+  r: "r",
+  R: "R",
   ONE: "1",
   TWO: "2",
   THREE: "3",
@@ -73,32 +63,43 @@ function isDevMenuEnabled() {
   return !process.pkg;
 }
 function isUp(key) {
-  return key === KEY.UP || key === KEY.w || key === KEY.W;
+  return key === KEY.UP;
 }
 function isDown(key) {
-  return key === KEY.DOWN || key === KEY.s || key === KEY.S;
+  return key === KEY.DOWN;
 }
 function isLeft(key) {
-  return key === KEY.LEFT || key === KEY.a || key === KEY.A;
+  return key === KEY.LEFT;
 }
 function isRight(key) {
-  return key === KEY.RIGHT || key === KEY.d || key === KEY.D;
+  return key === KEY.RIGHT;
 }
 function isConfirm(key) {
-  return key === KEY.ENTER || key === KEY.ENTER2 || key === KEY.SPACE;
+  return key === KEY.ENTER || key === KEY.ENTER2;
 }
 function isCancel(key) {
-  return key === KEY.ESCAPE || key === KEY.x || key === KEY.X;
+  return key === KEY.ESCAPE;
 }
 var CHARACTER_NAME_PATTERN = /^[A-Za-z0-9 _-]+$/;
 var PASSWORD_INPUT_PATTERN = /^[ -~]$/;
 var SCRIPT_NAME_PATTERN = /^[A-Za-z0-9_-]+$/;
 var ULTIMATE_EXPLOIT_KEY_PATTERN = /^[A-Za-z0-9]{16}$/;
 var TERMINAL_PASSWORD = "Terminal#quest4";
+var DEBUG_CHANNELS = [
+  { id: "audio", label: "Audio" },
+  { id: "battle", label: "Battle" },
+  { id: "engine", label: "Engine" },
+  { id: "map", label: "Map/Zone" },
+  { id: "save", label: "Save" },
+  { id: "tutorial", label: "Tutorial" },
+  { id: "input", label: "Input" }
+];
+var DEBUG_CHANNEL_IDS = DEBUG_CHANNELS.map((channel) => channel.id);
 var TEXT_ENTRY_SCREENS = /* @__PURE__ */ new Set([
   "new_game_name",
   "new_game_password",
   "scripts_terminal",
+  "flag_terminal",
   "final_key_input"
 ]);
 var CONTROL_KEYS = /* @__PURE__ */ new Set([
@@ -108,20 +109,9 @@ var CONTROL_KEYS = /* @__PURE__ */ new Set([
   KEY.RIGHT,
   KEY.ENTER,
   KEY.ENTER2,
-  KEY.SPACE,
   KEY.ESCAPE,
   KEY.BACKSPACE,
   KEY.BACKSPACE2,
-  KEY.w,
-  KEY.s,
-  KEY.a,
-  KEY.d,
-  KEY.W,
-  KEY.S,
-  KEY.A,
-  KEY.D,
-  KEY.e,
-  KEY.E,
   KEY.m,
   KEY.M,
   KEY.i,
@@ -130,8 +120,8 @@ var CONTROL_KEYS = /* @__PURE__ */ new Set([
   KEY.F,
   KEY.c,
   KEY.C,
-  KEY.x,
-  KEY.X,
+  KEY.r,
+  KEY.R,
   KEY.ONE,
   KEY.TWO,
   KEY.THREE,
@@ -1309,6 +1299,14 @@ function clampInt(value, min, max, fallback = min) {
 function sanitizeBoolean(value, fallback = false) {
   return typeof value === "boolean" ? value : fallback;
 }
+function sanitizeDebugChannels(value) {
+  const safe = {};
+  if (!isPlainObject(value)) return safe;
+  for (const id of DEBUG_CHANNEL_IDS) {
+    if (value[id] === true) safe[id] = true;
+  }
+  return safe;
+}
 function sanitizeString(value, maxLength, fallback = "") {
   if (typeof value !== "string") return fallback;
   return value.slice(0, maxLength);
@@ -1334,6 +1332,10 @@ function sanitizeItems(items) {
   }
   return safeItems;
 }
+function sanitizeGameLog(log) {
+  if (!Array.isArray(log)) return [];
+  return log.filter((entry) => typeof entry === "string").slice(-120);
+}
 function sanitizeScriptList(scripts) {
   if (!Array.isArray(scripts)) return [];
   return Array.from(new Set(scripts.filter((scriptId) => typeof scriptId === "string" && !!SCRIPT_DEFS[scriptId])));
@@ -1358,6 +1360,21 @@ function sanitizeHiddenScriptsByZone(value, finalSecretKey) {
     safe[zone] = {
       zone,
       scriptId: entry.scriptId,
+      x: clampInt(entry.x, 0, MAP_WIDTH - 1, generated[zone].x),
+      y: clampInt(entry.y, 0, MAP_HEIGHT - 1, generated[zone].y)
+    };
+  }
+  return safe;
+}
+function sanitizeFlagTerminalsByZone(value, finalSecretKey) {
+  const generated = buildFlagTerminalLocations(finalSecretKey);
+  if (!isPlainObject(value)) return generated;
+  const safe = { ...generated };
+  for (const zone of Object.keys(generated)) {
+    const entry = value[zone];
+    if (!isPlainObject(entry)) continue;
+    safe[zone] = {
+      zone,
       x: clampInt(entry.x, 0, MAP_WIDTH - 1, generated[zone].x),
       y: clampInt(entry.y, 0, MAP_HEIGHT - 1, generated[zone].y)
     };
@@ -1603,6 +1620,7 @@ function normalizePlayerProgress(player) {
   if (party.length === 0) return null;
   const defeatedBosses = sanitizeDefeatedBosses(player.defeatedBosses);
   const hiddenScriptsByZone = sanitizeHiddenScriptsByZone(player.hiddenScriptsByZone, finalSecretKey);
+  const flagTerminalsByZone = sanitizeFlagTerminalsByZone(player.flagTerminalsByZone, finalSecretKey);
   const discoveredScripts = sanitizeScriptList(player.discoveredScripts);
   let recoveredScriptZones = sanitizeZoneList(player.recoveredScriptZones);
   for (const zone of Object.keys(hiddenScriptsByZone)) {
@@ -1631,6 +1649,8 @@ function normalizePlayerProgress(player) {
     });
   }
   keyPieces.sort((a, b) => BOSS_SEQUENCE.findIndex((boss) => boss.species === a.bossSpecies) - BOSS_SEQUENCE.findIndex((boss) => boss.species === b.bossSpecies));
+  const debugChannels = sanitizeDebugChannels(player.debugChannels);
+  if (player.audioDebug === true) debugChannels.audio = true;
   return {
     name: sanitizePlayerName(player.name),
     id: sanitizeString(player.id, 32, generateId()) || generateId(),
@@ -1640,8 +1660,11 @@ function normalizePlayerProgress(player) {
     items: sanitizeItems(player.items),
     defeatedBosses,
     targetLog: Array.isArray(player.targetLog) ? player.targetLog.filter((log) => typeof log === "string").slice(0, BOSS_SEQUENCE.length) : [],
+    gameLog: sanitizeGameLog(player.gameLog),
     discoveredScripts,
     hiddenScriptsByZone,
+    flagTerminalsByZone,
+    completedFlagZones: sanitizeZoneList(player.completedFlagZones),
     recoveredScriptZones,
     keyPieces,
     finalSecretKey,
@@ -1654,7 +1677,9 @@ function normalizePlayerProgress(player) {
     allDungeonsUnlocked: sanitizeBoolean(player.allDungeonsUnlocked, false),
     noEncounters: sanitizeBoolean(player.noEncounters, false),
     bgmMuted: sanitizeBoolean(player.bgmMuted, false),
-    audioDebug: sanitizeBoolean(player.audioDebug, false),
+    showCoordinates: sanitizeBoolean(player.showCoordinates, false),
+    debugChannels,
+    audioDebug: sanitizeBoolean(debugChannels.audio, false),
     verboseDebug: sanitizeBoolean(player.verboseDebug, false)
   };
 }
@@ -1778,6 +1803,27 @@ function discoverZoneScript(state2) {
   };
   return addMessage(nextState, `Hidden script recovered: ${scriptId}`);
 }
+function discoverFlagTerminal(state2) {
+  const zone = state2.player.currentZone;
+  if (state2.player.completedFlagZones?.includes(zone)) return state2;
+  const terminal = getHiddenFlagTerminalLocation(state2.player, zone);
+  if (!terminal) return state2;
+  const pos = state2.player.position;
+  if (pos.x !== terminal.x || pos.y !== terminal.y) return state2;
+  return {
+    ...addMessage(state2, "Hidden flag terminal mounted."),
+    screen: "flag_terminal",
+    previousScreen: "overworld",
+    terminalScroll: 0,
+    flagTerminal: {
+      zone,
+      cwd: "~",
+      input: "",
+      passwordMode: false,
+      log: ["recovery shell mounted", "locate .flag.key, then run sudo -s"]
+    }
+  };
+}
 function calcMaxHp(level, con, allocated) {
   return 20 + level * 3 + con * 5 + allocated * 2;
 }
@@ -1859,6 +1905,14 @@ var ITEMS = {
     description: "Fully rebuilds sub-routine memory.",
     price: 125,
     healAmount: 9999
+  },
+  xp_patch: {
+    id: "xp_patch",
+    name: "XP-Patch",
+    description: "Levels one exploit by 1.",
+    price: 0,
+    levelAmount: 1,
+    fieldOnly: true
   }
 };
 var SCRIPT_DEFS = {
@@ -1959,7 +2013,7 @@ function getMenuOptions(state2) {
   if (state2.tutorial?.active) return ["Resume", "Exploits", "Patches"];
   const opts = ["Resume", "Exploits", "Saved Exploits"];
   if (hasScriptsMenuAccess(state2)) opts.push("Scripts");
-  opts.push("Patches", state2.player?.bgmMuted ? "Unmute BGM" : "Mute BGM", "Save Game", "Quit to Title");
+  opts.push("Patches", "Game Log", state2.player?.bgmMuted ? "Unmute BGM" : "Mute BGM", state2.player?.showCoordinates ? "Hide Coordinates" : "Show Coordinates", "Save Game", "Quit to Title");
   if (isDevMenuEnabled() && state2.showDevMenu) opts.push("Developer Options");
   return opts;
 }
@@ -1986,8 +2040,31 @@ function buildZoneScriptLocations(finalSecretKey) {
   }
   return result;
 }
+function buildFlagTerminalLocations(finalSecretKey) {
+  const result = {};
+  for (const zone of Object.keys(ZONE_CONFIGS)) {
+    const map = ZONE_MAPS[zone];
+    const candidates = [];
+    for (let y = 0; y < MAP_HEIGHT; y++) {
+      for (let x = 0; x < MAP_WIDTH; x++) {
+        const tile = getTile(map, x, y);
+        if (!isWalkable(tile)) continue;
+        if (tile === "O" || tile === "$" || tile === "D") continue;
+        candidates.push({ x, y });
+      }
+    }
+    const rng = mulberry32(fnv1a(`${finalSecretKey}-${zone}-flag-terminal`));
+    const pickIndex = candidates.length > 0 ? Math.floor(rng() * candidates.length) : 0;
+    const coord = candidates[pickIndex] ?? { x: 2, y: 2 };
+    result[zone] = { zone, x: coord.x, y: coord.y };
+  }
+  return result;
+}
 function getHiddenScriptLocation(player, zone) {
   return player.hiddenScriptsByZone?.[zone] ?? null;
+}
+function getHiddenFlagTerminalLocation(player, zone) {
+  return player.flagTerminalsByZone?.[zone] ?? null;
 }
 function getDirectionHint(from, to) {
   const parts = [];
@@ -2111,7 +2188,7 @@ var SKILLS = {
   },
   "Byte": {
     name: "Byte",
-    description: "A standard connectivity test.",
+    description: "A basic data bite that chips away at target memory.",
     power: 12,
     acc: 1,
     effect: null
@@ -2289,6 +2366,7 @@ function enemyPlan(state2, party) {
   const announced = cloneBattle(state2);
   announced.phase = "enemy_turn";
   if (roll < 0.15) {
+    battleDebug(`enemy action=defend actor=${actor.creature.nickname}`);
     announced.log.push(`${actor.creature.nickname} braces!`);
     steps.push(stateStep(announced, syncParty(party, announced)));
     steps.push(animationStep("defend", "enemy", 5));
@@ -2302,7 +2380,10 @@ function enemyPlan(state2, party) {
   }
   const skills = actor.creature.skills;
   const skillName = skills[Math.floor(Math.random() * skills.length)];
+  const playerMbBefore = target.creature.currentHp;
+  battleDebug(`enemy action=skill actor=${actor.creature.nickname} skill=${skillName} target=${target.creature.nickname}`);
   const withSkill = applySkill(announced, "enemy", "player", skillName);
+  battleDebug(`enemy skill resolved target=${target.creature.nickname} mb=${withSkill.player.creature.currentHp}/${withSkill.player.creature.maxHp} delta=${playerMbBefore - withSkill.player.creature.currentHp}`);
   steps.push(stateStep(withSkill, syncParty(party, withSkill)));
   steps.push(animationStep("attack", "enemy", 6));
   steps.push(animationStep("hit", "player", 4));
@@ -2350,7 +2431,10 @@ function planBattleAction(state2, action, playerParty, playerItems, options) {
   let items = playerItems;
   let currentParty = playerParty;
   if (action === "skill" && options?.skillName) {
+    const enemyMbBefore = initial.enemy.creature.currentHp;
+    battleDebug(`player action=skill actor=${initial.player.creature.nickname} skill=${options.skillName} target=${initial.enemy.creature.nickname}`);
     const withSkill = applySkill(initial, "player", "enemy", options.skillName);
+    battleDebug(`player skill resolved target=${initial.enemy.creature.nickname} mb=${withSkill.enemy.creature.currentHp}/${withSkill.enemy.creature.maxHp} delta=${enemyMbBefore - withSkill.enemy.creature.currentHp}`);
     steps.push(stateStep(withSkill, syncParty(currentParty, withSkill)));
     steps.push(animationStep("attack", "player", 6));
     steps.push(animationStep("hit", "enemy", 4));
@@ -2373,6 +2457,7 @@ function planBattleAction(state2, action, playerParty, playerItems, options) {
   if (action === "script" && options?.scriptName) {
     const resolved = cloneBattle(initial);
     const scriptName = options.scriptName;
+    battleDebug(`player action=script actor=${resolved.player.creature.nickname} script=${scriptName}`);
     if (scriptName === "inject") {
       resolved.log.push(`${resolved.player.creature.nickname} executes inject.`);
       resolved.player.statuses.push({ type: "buff", stat: "attack", amount: 12, duration: 3, log: "Attack stack overclocked." });
@@ -2420,25 +2505,32 @@ function planBattleAction(state2, action, playerParty, playerItems, options) {
     }
     resolved.phase = "player_action";
     resolved.log.push("Script rejected by the active battle context.");
+    battleDebug(`script rejected script=${scriptName}`);
     return { initialBattle: resolved, steps: [] };
   }
   if (action === "defend") {
+    battleDebug(`player action=defend actor=${initial.player.creature.nickname}`);
     initial.log.push(`${initial.player.creature.nickname} braces!`);
     steps.push(animationStep("defend", "player", 5));
     const resolved = cloneBattle(initial);
     const defense = calcDefense(resolved.player.creature.level, resolved.player.creature.baseCon, resolved.player.creature.allocatedCon);
     const bonus = Math.floor(defense * 0.3);
+    battleDebug(`player defend resolved bonus=${bonus}`);
     resolved.player = { ...resolved.player, isDefending: true, tempDefBonus: bonus };
     resolved.log.push(`Defense rose by ${bonus}.`);
     return { initialBattle: initial, steps: [...steps, ...enemyPlan(resolved, currentParty)] };
   }
   if (action === "flee") {
+    battleDebug(`player action=flee actor=${initial.player.creature.nickname}`);
     initial.log.push(`${initial.player.creature.nickname} tries to flee!`);
     steps.push(animationStep("flee", "player", 6));
     const resolved = cloneBattle(initial);
     const roll = Math.random();
     const chance = 0.5 + Math.max(0, battleScore(resolved.player.creature) - battleScore(resolved.enemy.creature)) * 0.02;
-    if (state2.context === "tutorial" || roll < Math.min(0.9, chance)) {
+    const fleeChance = Math.min(0.9, chance);
+    const fleeSucceeded = state2.context === "tutorial" || roll < fleeChance;
+    battleDebug(`flee roll=${roll.toFixed(3)} chance=${fleeChance.toFixed(3)} success=${fleeSucceeded}`);
+    if (fleeSucceeded) {
       resolved.log.push("Program compiled with exit code 0");
       resolved.phase = "result";
       resolved.result = "flee";
@@ -2452,16 +2544,19 @@ function planBattleAction(state2, action, playerParty, playerItems, options) {
   if (action === "item" && options?.itemId) {
     const item = ITEMS[options.itemId];
     const count = playerItems[options.itemId] ?? 0;
+    battleDebug(`player action=patch item=${options.itemId} count=${count}`);
     if (!item || count <= 0) {
       const failed = cloneBattle(initial);
       failed.phase = "player_action";
       failed.log.push("No authorized patches available.");
+      battleDebug(`patch rejected item=${options.itemId}`);
       return { initialBattle: failed, steps: [] };
     }
     initial.log.push(`${item.name} applied to ${initial.player.creature.nickname}.`);
     steps.push(animationStep("heal", "player", 5));
     const resolved = cloneBattle(initial);
     const healAmount = Math.min(item.healAmount, resolved.player.creature.maxHp - resolved.player.creature.currentHp);
+    battleDebug(`patch resolved item=${options.itemId} target=${resolved.player.creature.nickname} restore=${healAmount}`);
     resolved.player = {
       ...resolved.player,
       creature: {
@@ -2477,10 +2572,12 @@ function planBattleAction(state2, action, playerParty, playerItems, options) {
   }
   if (action === "switch" && options?.switchToIndex !== void 0) {
     const target = playerParty[options.switchToIndex];
+    battleDebug(`player action=switch targetIndex=${options.switchToIndex} target=${target?.nickname ?? "empty"}`);
     if (options.switchToIndex === state2.playerActiveIndex) {
       const failed = cloneBattle(initial);
       failed.phase = "player_action";
       failed.log.push(`${failed.player.creature.nickname} is already active.`);
+      battleDebug(`switch rejected reason=already-active index=${options.switchToIndex}`);
       failed.selectingSwitch = false;
       failed.switchCursor = options.switchToIndex;
       return { initialBattle: failed, steps: [] };
@@ -2489,6 +2586,7 @@ function planBattleAction(state2, action, playerParty, playerItems, options) {
       const failed = cloneBattle(initial);
       failed.phase = "player_action";
       failed.log.push(`That routine cannot execute in combat.`);
+      battleDebug(`switch rejected reason=unavailable index=${options.switchToIndex}`);
       failed.selectingSwitch = false;
       failed.switchCursor = options.switchToIndex;
       return { initialBattle: failed, steps: [] };
@@ -2498,10 +2596,12 @@ function planBattleAction(state2, action, playerParty, playerItems, options) {
     initial.selectingSwitch = false;
     initial.switchCursor = options.switchToIndex;
     initial.log.push(`${target.nickname} deployed into the active exploit stack.`);
+    battleDebug(`switch resolved target=${target.nickname} index=${options.switchToIndex}`);
     currentParty = syncParty(currentParty, initial);
     return { initialBattle: initial, steps: enemyPlan(initial, currentParty) };
   }
   if (action === "capture") {
+    battleDebug(`player action=link actor=${initial.player.creature.nickname} target=${initial.enemy.creature.nickname}`);
     initial.log.push(`${initial.player.creature.nickname} initiates a link handshake.`);
     steps.push(animationStep("capture", "player", 8));
     const resolved = cloneBattle(initial);
@@ -2509,11 +2609,15 @@ function planBattleAction(state2, action, playerParty, playerItems, options) {
     const hpRatio = enemy.currentHp / enemy.maxHp;
     if (hpRatio > 0.5) {
       resolved.log.push(`${enemy.nickname} rejects the link. Reduce corruption first.`);
+      battleDebug(`link rejected target=${enemy.nickname} hpRatio=${hpRatio.toFixed(3)}`);
       steps.push(stateStep(resolved, syncParty(currentParty, resolved)));
       return { initialBattle: initial, steps: [...steps, ...enemyPlan(resolved, currentParty)] };
     }
     const chance = catchChance(enemy.currentHp, enemy.maxHp, enemy.level);
-    if (Math.random() < chance) {
+    const roll = Math.random();
+    const success = roll < chance;
+    battleDebug(`link roll=${roll.toFixed(3)} chance=${chance.toFixed(3)} success=${success}`);
+    if (success) {
       resolved.log.push(`Link established. ${enemy.nickname} has entered the protocol.`);
       resolved.phase = "catch_result";
       resolved.result = "caught";
@@ -2585,9 +2689,9 @@ function backupCorruptSave(savePath, reason) {
       backupPath = path.join(parsed.dir, `${parsed.name}.corrupt-${saveBackupTimestamp()}-${suffix++}${parsed.ext}`);
     }
     fs.renameSync(savePath, backupPath);
-    engineDebug(`corrupt save backed up reason=${reason} path=${backupPath}`);
+    saveDebug(`corrupt save backed up reason=${reason} path=${backupPath}`);
   } catch (error) {
-    engineDebug(`corrupt save backup failed reason=${reason} error=${error?.message ?? error}`);
+    saveDebug(`corrupt save backup failed reason=${reason} error=${error?.message ?? error}`);
   }
 }
 function parseSaveFile(savePath, { backupOnFailure = false } = {}) {
@@ -2611,7 +2715,7 @@ function parseSaveFile(savePath, { backupOnFailure = false } = {}) {
     };
   } catch (error) {
     if (backupOnFailure) backupCorruptSave(savePath, "parse-failed");
-    engineDebug(`save parse failed path=${savePath} error=${error?.message ?? error}`);
+    saveDebug(`save parse failed path=${savePath} error=${error?.message ?? error}`);
     return null;
   }
 }
@@ -2624,13 +2728,13 @@ function saveGame(state2, slot) {
     player: state2.player
   };
   fs.writeFileSync(getSlotPath(slot), JSON.stringify(saveData, null, 2), "utf8");
-  engineDebug(`save slot=${slot} player=${state2.player?.name ?? "unknown"} zone=${state2.player?.currentZone ?? "unknown"} screen=${state2.screen}`);
+  saveDebug(`save slot=${slot} player=${state2.player?.name ?? "unknown"} zone=${state2.player?.currentZone ?? "unknown"} screen=${state2.screen}`);
 }
 function loadGame(slot) {
   const p = getSlotPath(slot);
   if (!fs.existsSync(p)) return null;
   const parsed = parseSaveFile(p, { backupOnFailure: true });
-  engineDebug(`load slot=${slot} player=${parsed?.player?.name ?? "unknown"} zone=${parsed?.player?.currentZone ?? "unknown"}`);
+  saveDebug(`load slot=${slot} player=${parsed?.player?.name ?? "unknown"} zone=${parsed?.player?.currentZone ?? "unknown"}`);
   return parsed;
 }
 function getSaveSlots() {
@@ -2723,10 +2827,17 @@ function getRuntimeAppVersion() {
 }
 var APP_DISPLAY_VERSION = `v${getRuntimeAppVersion()}`;
 var AUDIO_RUNTIME_ENABLED = process.env.KERNELBREACH_ENABLE_AUDIO !== "0";
-var audioDebugEnabled = process.env.KERNELBREACH_AUDIO_DEBUG === "1";
-var engineDebugEnabled = process.env.KERNELBREACH_VERBOSE_DEBUG === "1";
+var forcedAudioDebugEnabled = process.env.KERNELBREACH_AUDIO_DEBUG === "1";
+var forcedVerboseDebugEnabled = process.env.KERNELBREACH_VERBOSE_DEBUG === "1";
+var verboseDebugEnabled = forcedVerboseDebugEnabled;
+var debugChannelEnabled = Object.fromEntries(DEBUG_CHANNEL_IDS.map((id) => [id, false]));
+if (forcedAudioDebugEnabled) debugChannelEnabled.audio = true;
+if (forcedVerboseDebugEnabled) {
+  for (const id of DEBUG_CHANNEL_IDS) debugChannelEnabled[id] = true;
+}
 var DEBUG_LOG_LIMIT = 160;
 var debugLogBuffer = [];
+var lastInputDebugSignature = "";
 function getBundledFfplayPath() {
   if (process.platform !== "win32") return null;
   const exeDir = path.dirname(process.execPath);
@@ -2743,33 +2854,196 @@ function appendDebugLog(channel, message) {
     debugLogBuffer = debugLogBuffer.slice(-DEBUG_LOG_LIMIT);
   }
 }
-function engineDebug(message) {
-  appendDebugLog("engine", message);
-  if (!engineDebugEnabled) return;
+function isDebugChannelEnabled(channel) {
+  return verboseDebugEnabled || debugChannelEnabled[channel] === true;
+}
+function setDebugConfig({ channels = {}, verbose = false } = {}) {
+  const nextVerbose = !!verbose || forcedVerboseDebugEnabled;
+  const previousVerbose = verboseDebugEnabled;
+  verboseDebugEnabled = nextVerbose;
+  if (!previousVerbose && nextVerbose) appendDebugLog("engine", "verbose debug enabled");
+  for (const id of DEBUG_CHANNEL_IDS) {
+    const next = !!channels[id] || (id === "audio" && forcedAudioDebugEnabled) || nextVerbose;
+    const previous = debugChannelEnabled[id] === true;
+    debugChannelEnabled[id] = next;
+    if (id === "input" && previous !== next) lastInputDebugSignature = "";
+    if (!previous && next && !nextVerbose) appendDebugLog(id, `${id} debug enabled`);
+  }
+}
+function getDebugLogSnapshot() {
+  const enabledChannels = new Set(DEBUG_CHANNEL_IDS.filter(isDebugChannelEnabled));
+  const terminal = getActiveTerminalPanelSnapshot();
+  const pinned = getPublicPanelEntries();
+  const debugEntries = debugLogBuffer
+    .filter((entry) => enabledChannels.has(entry.channel))
+    .map((entry) => ({ ...entry }));
+  return {
+    enabled: !!terminal || pinned.length > 0 || debugEntries.length > 0,
+    terminal,
+    pinned,
+    entries: debugEntries
+  };
+}
+function getVisibleDebugEntries() {
+  const enabledChannels = new Set(DEBUG_CHANNEL_IDS.filter(isDebugChannelEnabled));
+  return debugLogBuffer
+    .filter((entry) => enabledChannels.has(entry.channel))
+    .map((entry) => ({ ...entry }));
+}
+function debugLog(channel, message) {
+  const normalizedChannel = DEBUG_CHANNEL_IDS.includes(channel) ? channel : "engine";
+  if (!isDebugChannelEnabled(normalizedChannel)) return false;
+  appendDebugLog(normalizedChannel, message);
   try {
-    process.stderr.write(`[engine] ${message}
+    process.stderr.write(`[${normalizedChannel}] ${message}
 `);
   } catch {
   }
+  return true;
 }
-function setEngineDebugEnabled(enabled) {
-  engineDebugEnabled = enabled;
-  engineDebug(`verbose debug ${enabled ? "enabled" : "disabled"}`);
+function engineDebug(message) {
+  debugLog("engine", message);
 }
 function audioDebug(message) {
-  appendDebugLog("audio", message);
-  if (!audioDebugEnabled) return;
-  try {
-    process.stderr.write(`[audio] ${message}
-`);
-  } catch {
+  debugLog("audio", message);
+}
+function battleDebug(message) {
+  debugLog("battle", message);
+}
+function mapDebug(message) {
+  debugLog("map", message);
+}
+function saveDebug(message) {
+  debugLog("save", message);
+}
+function tutorialDebug(message) {
+  debugLog("tutorial", message);
+}
+function inputDebug(message) {
+  return debugLog("input", message);
+}
+function formatDebugKey(key) {
+  const named = Object.entries(KEY).find(([, value]) => value === key);
+  if (named) return named[0];
+  if (typeof key !== "string") return String(key);
+  return JSON.stringify(key);
+}
+function getBattleInputSignature(battle, key) {
+  return `battle|${battle.phase}|${getBattleInputMode(battle)}|${formatDebugKey(key)}`;
+}
+function getBattleInputMode(battle) {
+  if (battle.selectingSkill) return "skill";
+  if (battle.selectingScript) return "script";
+  if (battle.selectingSwitch) return "switch";
+  return "action";
+}
+function getTerminalPanelWindow(lines, scroll, available = TERMINAL_PANEL_VISIBLE_LINES) {
+  const safeLines = lines.length > 0 ? lines : ["No terminal output."];
+  const maxScroll = Math.max(0, safeLines.length - available);
+  const safeScroll = clampInt(scroll, 0, maxScroll, maxScroll);
+  const visible = safeLines.slice(safeScroll, safeScroll + available);
+  return {
+    lines: [`Lines ${safeScroll + 1}-${safeScroll + visible.length} of ${safeLines.length}`, ...visible],
+    maxScroll,
+    safeScroll
+  };
+}
+function getActiveTerminalPanelSnapshot() {
+  if (!state?.player) return null;
+  if (state.screen === "scripts_terminal") {
+    const discovered = getDiscoveredScripts(state.player);
+    const history = state.scriptTerminalLog ?? [];
+    const view = getTerminalPanelWindow(history.length > 0 ? history : ["script terminal initialized", "type help to list available commands"], state.terminalScroll ?? 0);
+    return {
+      title: "SCRIPT TERMINAL",
+      lines: [
+        "Recovered scripts can be executed from this terminal.",
+        `Recovered: ${discovered.length > 0 ? discovered.join(", ") : "none"}`,
+        "",
+        ...view.lines
+      ],
+      input: `> ${state.scriptInput ?? ""}_`,
+      footer: "Enter: Execute   clear: Clear terminal   Arrow keys: Scroll   Esc: Back"
+    };
+  }
+  if (state.screen === "flag_terminal") {
+    const zone = state.flagTerminal?.zone ?? state.player.currentZone;
+    const cwd = state.flagTerminal?.cwd ?? "~";
+    const lines = state.flagTerminal?.log ?? [];
+    const view = getTerminalPanelWindow(lines.length > 0 ? lines : ["terminal mounted", "find .flag.key and escalate with sudo -s"], state.terminalScroll ?? 0);
+    const prompt = state.flagTerminal?.passwordMode ? "password: " : `${cwd}$ `;
+    return {
+      title: "FLAG TERMINAL",
+      lines: [
+        `Mounted recovery shell for ${ZONE_CONFIGS[zone]?.displayName ?? zone}.`,
+        "Commands: ls, ls -la, cd, pwd, cat, sudo -s, clear",
+        "",
+        ...view.lines
+      ],
+      input: `${prompt}${state.flagTerminal?.input ?? ""}_`,
+      footer: "Enter: Execute   Arrow keys: Scroll   Esc: Disconnect"
+    };
+  }
+  if (state.screen === "debug_log") {
+    const entries = getVisibleDebugEntries().map((entry) => `[${entry.channel}] ${entry.at} ${entry.message}`);
+    const view = getTerminalPanelWindow(entries.length > 0 ? entries : ["No debug entries recorded."], state.terminalScroll ?? state.debugLogScroll ?? 0);
+    return {
+      title: "DEBUG LOG",
+      lines: ["Developer channel output.", "", ...view.lines],
+      input: "",
+      footer: "Arrow keys: Scroll   Esc/Enter: Back"
+    };
+  }
+  if (state.screen === "game_log") {
+    const lines = state.player?.gameLog ?? [];
+    const view = getTerminalPanelWindow(lines.length > 0 ? lines : ["No public system events recorded."], state.terminalScroll ?? 0);
+    return {
+      title: "GAME LOG",
+      lines: ["Public system event history.", "", ...view.lines],
+      input: "",
+      footer: "Arrow keys: Scroll   Esc/Enter: Back"
+    };
+  }
+  return null;
+}
+function getPublicPanelEntries() {
+  const player = state?.player;
+  if (!player || getActiveTerminalPanelSnapshot()) return [];
+  const latestMessage = state.messages?.[state.messages.length - 1];
+  const entries = [
+    { channel: "message", message: latestMessage || "System bus idle // no new events" },
+    { channel: "status", message: getSystemStatusLine(state) }
+  ];
+  const objective = getCurrentObjective(player);
+  entries.push({ channel: "objective", message: objective ? `Target ${objective.bossName} // ${objective.zoneName} // ${getTravelVectorLabel(player.currentZone, objective.zone)}` : "All security daemons purged // Root Directory awaits" });
+  if (!player.showCoordinates || !player.position) {
+    entries.push({ channel: "coords", message: "Coordinate trace disabled" });
+    return entries;
+  }
+  const zoneName = ZONE_CONFIGS[player.currentZone]?.displayName ?? player.currentZone ?? "Unknown Zone";
+  const context = state?.screen === "dungeon" && state.dungeon ? ZONE_CONFIGS[state.dungeon.zone]?.dungeonName ?? "Breach Site" : zoneName;
+  entries.push({ channel: "coords", message: `Location ${context} // Zone ${zoneName} // X:${player.position.x} Y:${player.position.y}` });
+  return entries;
+}
+function getSystemStatusLine(state2) {
+  if (!state2?.player) return "No active session";
+  if (state2.screen === "battle" && state2.battle) return `Battle session // ${state2.battle.context} // turn ${state2.battle.turn}`;
+  if (state2.screen === "dungeon" && state2.dungeon) return `Breach site active // ${ZONE_CONFIGS[state2.dungeon.zone]?.dungeonName ?? state2.dungeon.zone}`;
+  if (state2.screen === "menu") return "System menu active";
+  if (state2.screen === "scripts_terminal") return "Script terminal active";
+  if (state2.screen === "game_log") return "Game log open";
+  return `Runtime ${state2.screen} // party ${state2.player.party.length}/4 // credits ${state2.player.gold}CR`;
+}
+function logRuntimeInput(state2, key) {
+  if (state2.screen === "battle" || TEXT_ENTRY_SCREENS.has(state2.screen)) return;
+  const signature = `${state2.screen}|${formatDebugKey(key)}`;
+  if (signature === lastInputDebugSignature) return;
+  if (inputDebug(`screen=${state2.screen} key=${formatDebugKey(key)}`)) {
+    lastInputDebugSignature = signature;
   }
 }
-function setAudioDebugEnabled(enabled) {
-  audioDebugEnabled = enabled;
-  audioDebug(`audio debug ${enabled ? "enabled" : "disabled"}`);
-}
 var playerBackend = null;
+var lastAudioSyncKey = null;
 function commandExists(command, args = ["--help"]) {
   try {
     const result = spawnSync(command, args, { stdio: "ignore" });
@@ -2910,7 +3184,11 @@ function createAudioManager() {
   return {
     sync(trackId, nextMuted) {
       muted = nextMuted;
-      audioDebug(`sync track=${trackId ?? "none"} muted=${muted} runtime=${AUDIO_RUNTIME_ENABLED}`);
+      const syncKey = `${trackId ?? "none"}|${muted ? "muted" : "active"}|${AUDIO_RUNTIME_ENABLED ? "runtime-on" : "runtime-off"}`;
+      if (syncKey !== lastAudioSyncKey) {
+        audioDebug(`sync track=${trackId ?? "none"} muted=${muted} runtime=${AUDIO_RUNTIME_ENABLED}`);
+        lastAudioSyncKey = syncKey;
+      }
       if (!AUDIO_RUNTIME_ENABLED || !trackId) {
         stopPlayback(!AUDIO_RUNTIME_ENABLED ? "runtime disabled" : "no track");
         currentTrackId = null;
@@ -3498,7 +3776,7 @@ function buildInfoPanel(player, messages) {
     lines.push(`${color("Vector:", GREY)} Seek the Root Directory.`);
     lines.push("");
   }
-  lines.push(dim("[M]enu  [E]nter  [I]nventory"));
+  lines.push(dim("[M]enu  [Enter] interact  [I]nventory"));
   const remaining = MAP_HEIGHT - lines.length;
   if (remaining > 0) {
     lines.push("");
@@ -3544,7 +3822,7 @@ function buildDungeonInfoPanel(player, zone, bossDefeated, messages) {
     lines.push(dim("Seek the B tile"));
   }
   lines.push("");
-  lines.push(dim("[E] interact  [M] menu"));
+  lines.push(dim("[Enter] interact  [M] menu"));
   const remaining = MAP_HEIGHT - lines.length;
   if (remaining > 0) {
     lines.push("");
@@ -3620,13 +3898,13 @@ function getTutorialPrompt(state2) {
   if (!isTutorialActive(state2)) return "";
   const step = state2.tutorial.step;
   const battleStep = state2.tutorial.battleStep;
-  if (step === "move") return "Tutorial: Use WASD or arrow keys to move one tile.";
+  if (step === "move") return "Tutorial: Use the arrow keys to move one tile.";
   if (step === "open_menu") return "Tutorial: Press M to open the menu.";
   if (step === "open_party") return "Tutorial: Select Exploits and press Enter.";
-  if (step === "close_party") return "Tutorial: This is your active exploit. Press X to return.";
+  if (step === "close_party") return "Tutorial: This is your active exploit. Press Esc to return.";
   if (step === "open_inventory") return "Tutorial: Press I to open Patches.";
-  if (step === "close_inventory") return "Tutorial: Patches restore memory. Press X to return.";
-  if (step === "start_battle") return "Tutorial: Press E to start a training battle.";
+  if (step === "close_inventory") return "Tutorial: Patches restore memory. Press Esc to return.";
+  if (step === "start_battle") return "Tutorial: Press Enter to start a training battle.";
   if (step === "battle") {
     if (battleStep === "skill") return "Tutorial: Choose Skill, then use Byte.";
     if (battleStep === "patch") return "Tutorial: Choose Patch and use a Patch-Kit.";
@@ -3658,6 +3936,8 @@ function renderOverworld(state2) {
   const viewportY = getViewportStart(MAP_HEIGHT, layout.visibleMapRows, player.position.y);
   const hiddenScript = getHiddenScriptLocation(player, player.currentZone);
   const hiddenRecovered = player.recoveredScriptZones?.includes(player.currentZone);
+  const hiddenFlagTerminal = getHiddenFlagTerminalLocation(player, player.currentZone);
+  const flagTerminalCompleted = player.completedFlagZones?.includes(player.currentZone);
   rows.push(mapTopBorder(ZONE_CONFIGS[player.currentZone].displayName));
   for (let screenY = 0; screenY < layout.visibleMapRows; screenY++) {
     const y = viewportY + screenY;
@@ -3670,7 +3950,8 @@ function renderOverworld(state2) {
       } else {
         const ch = rawRow[x];
         const isHiddenScriptTile = !hiddenRecovered && hiddenScript && x === hiddenScript.x && y === hiddenScript.y;
-        const c = isHiddenScriptTile ? BRIGHT_MAGENTA : TILE_COLORS[ch] ?? ZONE_GROUND_COLORS[player.currentZone];
+        const isHiddenFlagTerminalTile = !flagTerminalCompleted && hiddenFlagTerminal && x === hiddenFlagTerminal.x && y === hiddenFlagTerminal.y;
+        const c = isHiddenFlagTerminalTile ? BRIGHT_YELLOW : isHiddenScriptTile ? BRIGHT_MAGENTA : TILE_COLORS[ch] ?? ZONE_GROUND_COLORS[player.currentZone];
         displayRow += renderScaledCell(getOverworldDisplayTile(ch, x, y, state2), c, layout.tileScaleX);
       }
     }
@@ -3690,7 +3971,7 @@ function renderOverworld(state2) {
     }
   }
   rows.push(layout.mode === "split" ? splitBottomBorder(layout) : bottomBorder());
-  rows.push(`${DIM}WASD/\u2191\u2193\u2190\u2192:Move  E:Enter  M:Menu  I:Inventory${RESET}`);
+  rows.push(`${DIM}\u2191\u2193\u2190\u2192:Move  Enter:Interact  M:Menu  I:Inventory${RESET}`);
   renderFrame(rows);
 }
 function renderDungeon(state2) {
@@ -3736,7 +4017,7 @@ function renderDungeon(state2) {
     }
   }
   rows.push(layout.mode === "split" ? splitBottomBorder(layout) : bottomBorder());
-  rows.push(`${DIM}WASD/\u2191\u2193\u2190\u2192:Move  E:Exit(D tile)  M:Menu${RESET}`);
+  rows.push(`${DIM}\u2191\u2193\u2190\u2192:Move  D tile:Exit  M:Menu${RESET}`);
   renderFrame(rows);
 }
 function getBattleActionEntries(state2) {
@@ -3964,7 +4245,7 @@ function renderLaunchAnimation(state2) {
       stamp(sx, sy, sparks[(frame + i) % sparks.length], i % 2 ? BRIGHT_CYAN : BRIGHT_YELLOW);
     }
   }
-  const hint = frame >= LAUNCH_SKIP_FRAMES ? "Enter/Space/X/Esc: Skip" : "Initializing transfer...";
+  const hint = frame >= LAUNCH_SKIP_FRAMES ? "Enter/Esc: Skip" : "Initializing transfer...";
   stamp(left, top + sceneH - 1, hint, GREY);
   const out = lines.map((row) => row.join(""));
   renderFrame(out);
@@ -3993,7 +4274,7 @@ function renderTitle(cursor, statusMessage = "") {
   }
   const statusLines = statusMessage ? [
     "",
-    color(pad(statusMessage, W, "center"), statusMessage.includes("ACCESS DENIED") ? BRIGHT_RED : BRIGHT_CYAN)
+    color(pad(statusMessage, W, "center"), statusMessage.includes("ACCESS DENIED") || statusMessage.includes("failed") || statusMessage.includes("fault") ? BRIGHT_RED : BRIGHT_CYAN)
   ] : [];
   const footerLines = [
     "",
@@ -4073,7 +4354,7 @@ function renderLoadGame(slots, cursor) {
     }
     rows.push("");
   }
-  rows.push(dim(pad("\u2191\u2193: Select   Enter: Load   X: Back", W, "center")));
+  rows.push(dim(pad("\u2191\u2193: Select   Enter: Load   Esc: Back", W, "center")));
   renderFrame(rows);
 }
 function renderSaveSelect(slots, cursor) {
@@ -4092,14 +4373,14 @@ function renderSaveSelect(slots, cursor) {
     }
     rows.push("");
   }
-  rows.push(dim(pad("\u2191\u2193: Select   Enter: Save   X: Back", W, "center")));
+  rows.push(dim(pad("\u2191\u2193: Select   Enter: Save   Esc: Back", W, "center")));
   renderFrame(rows);
 }
 function renderMenu(state2) {
   const W = getGameWidth();
   const { player, menuCursor } = state2;
   const objective = getCurrentObjective(player);
-  const logLines = buildTargetLogLines(player, W - 4).slice(-6);
+  const maxRows = Math.max(8, getTerminalSize().rows - 1);
   const rows = [];
   rows.push(topBorder("MENU", W));
   const tutorialPrompt = getTutorialPrompt(state2);
@@ -4121,47 +4402,17 @@ function renderMenu(state2) {
   rows.push(`\u2502 ${bold("Objective:")} ${pad(objective ? objective.bossName : "All daemons purged", W - 15)} \u2502`);
   rows.push(`\u2502 ${bold("Location:")} ${pad(objective ? objective.zoneName : "Root Directory", W - 14)} \u2502`);
   rows.push(`\u2502 ${bold("Vector:")}   ${pad(objective ? getTravelVectorLabel(player.currentZone, objective.zone) : "Center", W - 14)} \u2502`);
-  rows.push(divider(W));
-  rows.push(`\u2502 ${pad(bold("Target-Log"), W - 4)} \u2502`);
-  for (const entry of logLines) {
-    rows.push(`\u2502 ${pad(entry, W - 4)} \u2502`);
-  }
-  rows.push(bottomBorder(W));
-  rows.push(dim("\u2191\u2193: Select   Enter: Confirm   X: Back"));
-  renderFrame(rows);
-}
-function renderScriptsTerminal(state2) {
-  const W = getGameWidth();
-  const rows = [];
-  const history = state2.scriptTerminalLog ?? [];
-  const prompt = state2.scriptInput ?? "";
-  const discovered = getDiscoveredScripts(state2.player);
-  rows.push(topBorder("SCRIPT TERMINAL", W));
-  rows.push(`\u2502 ${pad(color("Recovered scripts can be executed from this terminal.", BRIGHT_CYAN), W - 4)} \u2502`);
-  rows.push(`\u2502 ${pad(bold("Recovered Scripts"), W - 4)} \u2502`);
-  if (discovered.length === 0) {
-    rows.push(`\u2502 ${pad(dim("No scripts recovered."), W - 4)} \u2502`);
-  } else {
-    for (const wrapped of wrapText(discovered.join(", "), W - 4)) {
-      rows.push(`\u2502 ${pad(color(wrapped, BRIGHT_YELLOW), W - 4)} \u2502`);
+  const targetLogCapacity = maxRows - rows.length - 4;
+  if (targetLogCapacity > 0) {
+    const logLines = buildTargetLogLines(player, W - 4).slice(-Math.min(6, targetLogCapacity));
+    rows.push(divider(W));
+    rows.push(`\u2502 ${pad(bold("Target-Log"), W - 4)} \u2502`);
+    for (const entry of logLines) {
+      rows.push(`\u2502 ${pad(entry, W - 4)} \u2502`);
     }
   }
-  rows.push(divider(W));
-  const available = Math.max(4, getTerminalSize().rows - rows.length - 4);
-  const visibleHistory = history.slice(-available);
-  if (visibleHistory.length === 0) {
-    rows.push(`\u2502 ${pad(dim("No scripts executed in this session."), W - 4)} \u2502`);
-  } else {
-    for (const line of visibleHistory) {
-      for (const wrapped of wrapText(line, W - 4)) {
-        rows.push(`\u2502 ${pad(wrapped, W - 4)} \u2502`);
-      }
-    }
-  }
-  rows.push(divider(W));
-  rows.push(`\u2502 ${pad(`> ${color(prompt, BRIGHT_WHITE)}${BLINK}_${RESET}`, W - 4)} \u2502`);
   rows.push(bottomBorder(W));
-  rows.push(dim("Type a recovered script and press ENTER   X: Back"));
+  rows.push(dim("\u2191\u2193: Select   Enter: Confirm   Esc: Back"));
   renderFrame(rows);
 }
 function renderInventory(player, cursor) {
@@ -4182,7 +4433,7 @@ function renderInventory(player, cursor) {
     rows.push(`\u2502 ${prefix}${pad(line, W - 6)} \u2502`);
   }
   rows.push(bottomBorder(W));
-  rows.push(dim("\u2191\u2193: Select   Enter: Use   X: Back"));
+  rows.push(dim("\u2191\u2193: Select   Enter: Use   Esc: Back"));
   renderFrame(rows);
 }
 function renderTutorialInventory(state2) {
@@ -4205,7 +4456,7 @@ function renderTutorialInventory(state2) {
     rows.push(`\u2502 ${prefix}${pad(line, W - 6)} \u2502`);
   }
   rows.push(bottomBorder(W));
-  rows.push(dim("X: Back"));
+  rows.push(dim("Esc: Back"));
   renderFrame(rows);
 }
 function renderItemTarget(player, cursor, itemId) {
@@ -4221,7 +4472,7 @@ function renderItemTarget(player, cursor, itemId) {
     rows.push(`\u2502 ${prefix}${pad(`${c.nickname.padEnd(14)} Lv${c.level}  ${hp} ${c.currentHp}/${c.maxHp} MB`, W - 6)} \u2502`);
   }
   rows.push(bottomBorder(W));
-  rows.push(dim("\u2191\u2193: Select Target   Enter: Use   X: Back"));
+  rows.push(dim("\u2191\u2193: Select Target   Enter: Use   Esc: Back"));
   renderFrame(rows);
 }
 function renderPartyView(state2) {
@@ -4259,9 +4510,9 @@ function renderPartyView(state2) {
   rows.push(bottomBorder(W));
   if (state2.reorderSourceIdx !== void 0) {
     const source = player.party[state2.reorderSourceIdx];
-    rows.push(dim(`\u2191\u2193: Select target   Enter: Swap   R/X: Cancel move   Moving: ${source?.nickname ?? "exploit"}`));
+    rows.push(dim(`\u2191\u2193: Select target   Enter: Swap   R/Esc: Cancel move   Moving: ${source?.nickname ?? "exploit"}`));
   } else {
-    rows.push(dim("\u2191\u2193: Select   Enter: Spend SP   R: Reorder   S: Send to Exploit Storage   X: Back"));
+    rows.push(dim("\u2191\u2193: Select   Enter: Spend SP   R: Reorder   Esc: Back"));
   }
   renderFrame(rows);
 }
@@ -4280,7 +4531,7 @@ function renderStatUpgrade(creature, cursor) {
     rows.push(`\u2502 ${pad(`   ${val}`, W - 4)} \u2502`);
   }
   rows.push(bottomBorder(W));
-  rows.push(dim("\u2191\u2193: Select   Enter: Allocate 1 point   X: Back"));
+  rows.push(dim("\u2191\u2193: Select   Enter: Allocate 1 point   Esc: Back"));
   renderFrame(rows);
 }
 function renderShop(player, cursor) {
@@ -4300,7 +4551,7 @@ function renderShop(player, cursor) {
     rows.push(`\u2502 ${selected ? color("\u25B6 ", BRIGHT_YELLOW) : "  "}${pad(line, W - 6)} \u2502`);
   }
   rows.push(bottomBorder(W));
-  rows.push(dim("\u2191\u2193: Select   Enter: Provision   X: Leave"));
+  rows.push(dim("\u2191\u2193: Select   Enter: Provision   Esc: Leave"));
   renderFrame(rows);
 }
 function renderStorageView(state2) {
@@ -4324,71 +4575,97 @@ function renderStorageView(state2) {
     }
   }
   rows.push(bottomBorder(W));
-  rows.push(dim("\u2191\u2193: Scroll   Enter: Restore to Exploits   X: Back"));
+  rows.push(dim("\u2191\u2193: Scroll   Enter: Restore to Exploits   Esc: Back"));
   renderFrame(rows);
 }
 function renderDeveloperOptions(player, cursor) {
   const W = getGameWidth();
   const rows = [];
   rows.push(topBorder("DEVELOPER OPTIONS", W));
-  const opts = [
-    `Audio Debug: ${player.audioDebug ? color("ON", GREEN) : color("OFF", RED)}`,
-    `Verbose Debug: ${player.verboseDebug ? color("ON", GREEN) : color("OFF", RED)}`,
-    "View Debug Log",
-    `Unlock All Breach Sites: ${player.allDungeonsUnlocked ? color("ON", GREEN) : color("OFF", RED)}`,
-    `No Encounter: ${player.noEncounters ? color("ON", GREEN) : color("OFF", RED)}`,
-    "Instant Patch (Heal All)",
-    "Add 5000 Credits",
-    "Level Up Party (+5)",
-    "Discover All Scripts",
-    "Key Entry",
-    "Secret Virus"
-  ];
+  const opts = getDeveloperOptions(player).map((option) => option.label);
   for (let i = 0; i < opts.length; i++) {
     const selected = i === cursor;
     const line = selected ? bold(color(`\u25B6 ${opts[i]}`, BRIGHT_YELLOW)) : dim(`  ${opts[i]}`);
     rows.push(`\u2502 ${pad(line, W - 4)} \u2502`);
   }
   rows.push(bottomBorder(W));
-  rows.push(dim("\u2191\u2193: Select   Enter: Execute   X: Back"));
+  rows.push(dim("\u2191\u2193: Select   Enter: Execute   Esc: Back"));
   renderFrame(rows);
+}
+function debugLabel(player, channel) {
+  const enabled = player.verboseDebug || player.debugChannels?.[channel.id] === true || (channel.id === "audio" && player.audioDebug === true);
+  return `${channel.label} Debug: ${enabled ? color("ON", GREEN) : color("OFF", RED)}`;
+}
+function getDeveloperOptions(player) {
+  return [
+    ...DEBUG_CHANNELS.map((channel) => ({ type: "debug_channel", channel: channel.id, label: debugLabel(player, channel) })),
+    { type: "verbose_debug", label: `Verbose Debug: ${player.verboseDebug ? color("ON", GREEN) : color("OFF", RED)}` },
+    { type: "view_debug_log", label: "View Debug Log" },
+    { type: "unlock_all_dungeons", label: `Unlock All Breach Sites: ${player.allDungeonsUnlocked ? color("ON", GREEN) : color("OFF", RED)}` },
+    { type: "no_encounters", label: `No Encounter: ${player.noEncounters ? color("ON", GREEN) : color("OFF", RED)}` },
+    { type: "heal_all", label: "Instant Patch (Heal All)" },
+    { type: "add_credits", label: "Add 5000 Credits" },
+    { type: "level_party", label: "Level Up Party (+5)" },
+    { type: "discover_scripts", label: "Discover All Scripts" },
+    { type: "key_entry", label: "Key Entry" },
+    { type: "secret_virus", label: "Secret Virus" }
+  ];
 }
 function handleDeveloperOptions(state2, key) {
   if (!isDevMenuEnabled()) {
     return { ...state2, screen: "menu", showDevMenu: false, menuCursor: 0 };
   }
-  const opts = 11;
-  if (isUp(key)) return { ...state2, menuCursor: (state2.menuCursor - 1 + opts) % opts };
-  if (isDown(key)) return { ...state2, menuCursor: (state2.menuCursor + 1) % opts };
+  const options = getDeveloperOptions(state2.player);
+  if (isUp(key)) return { ...state2, menuCursor: (state2.menuCursor - 1 + options.length) % options.length };
+  if (isDown(key)) return { ...state2, menuCursor: (state2.menuCursor + 1) % options.length };
   if (isCancel(key)) return { ...state2, screen: "menu", menuCursor: getMenuOptionIndex({ ...state2, showDevMenu: true }, "Developer Options") };
   if (isConfirm(key)) {
     let s = state2;
-    if (state2.menuCursor === 0) {
-      const next = !state2.player.audioDebug;
-      s = { ...state2, player: { ...state2.player, audioDebug: next } };
-      s = addMessage(s, `Developer: Audio Debug ${next ? "Enabled" : "Disabled"}`);
-    } else if (state2.menuCursor === 1) {
+    const selected = options[state2.menuCursor];
+    if (selected?.type === "debug_channel") {
+      const debugChannels = { ...(state2.player.debugChannels ?? {}) };
+      const next = !debugChannels[selected.channel];
+      if (next) debugChannels[selected.channel] = true;
+      else delete debugChannels[selected.channel];
+      s = {
+        ...state2,
+        player: {
+          ...state2.player,
+          debugChannels,
+          audioDebug: selected.channel === "audio" ? next : state2.player.audioDebug
+        }
+      };
+      const channelLabel = DEBUG_CHANNELS.find((channel) => channel.id === selected.channel)?.label ?? selected.channel;
+      s = addMessage(s, `Developer: ${channelLabel} Debug ${next ? "Enabled" : "Disabled"}`);
+    } else if (selected?.type === "verbose_debug") {
       const next = !state2.player.verboseDebug;
       s = { ...state2, player: { ...state2.player, verboseDebug: next } };
       s = addMessage(s, `Developer: Verbose Debug ${next ? "Enabled" : "Disabled"}`);
-    } else if (state2.menuCursor === 2) {
-      s = { ...state2, screen: "debug_log", previousScreen: "developer_options", menuCursor: 0 };
-    } else if (state2.menuCursor === 3) {
+    } else if (selected?.type === "view_debug_log") {
+      s = {
+        ...state2,
+        screen: "debug_log",
+        previousScreen: "developer_options",
+        menuCursor: 0,
+        terminalScroll: Math.max(0, getVisibleDebugEntries().length - Math.max(6, getTerminalSize().rows - 5)),
+        debugLogScroll: void 0
+      };
+    } else if (selected?.type === "unlock_all_dungeons") {
       const next = !state2.player.allDungeonsUnlocked;
       s = { ...state2, player: { ...state2.player, allDungeonsUnlocked: next } };
       s = addMessage(s, `Cheat: All Breach Sites ${next ? "Unlocked" : "Gated"}`);
-    } else if (state2.menuCursor === 4) {
+    } else if (selected?.type === "no_encounters") {
       const next = !state2.player.noEncounters;
       s = { ...state2, player: { ...state2.player, noEncounters: next } };
       s = addMessage(s, `Cheat: Random Encounters ${next ? "Disabled" : "Enabled"}`);
-    } else if (state2.menuCursor === 5) {
+    } else if (selected?.type === "heal_all") {
       const party = state2.player.party.map(healFully);
       s = { ...state2, player: { ...state2.player, party } };
       s = addMessage(s, "Cheat: Party Restored");
-    } else if (state2.menuCursor === 6) {
+    } else if (selected?.type === "add_credits") {
       s = { ...state2, player: { ...state2.player, gold: state2.player.gold + 5e3 } };
       s = addMessage(s, "Cheat: +5000 Credits");
-    } else if (state2.menuCursor === 7) {
+    } else if (selected?.type === "level_party") {
       const newParty = state2.player.party.map((c) => {
         let cur = c;
         for (let i = 0; i < 5; i++) {
@@ -4399,7 +4676,7 @@ function handleDeveloperOptions(state2, key) {
       });
       s = { ...state2, player: { ...state2.player, party: newParty } };
       s = addMessage(s, "Cheat: +5 Levels to Party");
-    } else if (state2.menuCursor === 8) {
+    } else if (selected?.type === "discover_scripts") {
       s = {
         ...state2,
         player: {
@@ -4409,7 +4686,7 @@ function handleDeveloperOptions(state2, key) {
         }
       };
       s = addMessage(s, "Cheat: All Scripts Recovered");
-    } else if (state2.menuCursor === 9) {
+    } else if (selected?.type === "key_entry") {
       const player = createAllBossesDefeatedPlayer(state2.player);
       s = {
         ...state2,
@@ -4420,7 +4697,7 @@ function handleDeveloperOptions(state2, key) {
         showFinalTargetLog: true
       };
       s = addMessage(s, "Developer: Final key entry unlocked with all boss progress restored.");
-    } else if (state2.menuCursor === 10) {
+    } else if (selected?.type === "secret_virus") {
       const secretVirus = createSecretVirusPlayer(state2.player);
       s = {
         ...state2,
@@ -4513,25 +4790,250 @@ function renderFinalKeyInput(state2) {
   rows.push(dim("Enter: Validate key   L: Toggle Target-Log"));
   renderFrame(rows);
 }
-function renderDebugLog(state2) {
+function renderTerminalPanel({ title, subtitle = [], lines = [], input = "", prompt = "", footer = "", scroll = 0, colorChannel = null }) {
   const W = getGameWidth();
   const rows = [];
-  rows.push(topBorder("DEBUG LOG", W));
-  const available = Math.max(6, getTerminalSize().rows - 5);
-  const entries = debugLogBuffer.slice(-available);
-  if (entries.length === 0) {
-    rows.push(`│ ${pad(dim("No debug entries recorded."), W - 4)} │`);
+  rows.push(topBorder(title, W));
+  for (const line of subtitle) {
+    rows.push(`│ ${pad(color(line, BRIGHT_CYAN), W - 4)} │`);
+  }
+  if (subtitle.length > 0) rows.push(divider(W));
+  const promptRows = prompt ? 3 : 0;
+  const available = Math.max(4, getTerminalSize().rows - rows.length - promptRows - 3);
+  const maxScroll = Math.max(0, lines.length - available);
+  const safeScroll = clampInt(scroll, 0, maxScroll, maxScroll);
+  const visibleLines = lines.slice(safeScroll, safeScroll + available);
+  if (visibleLines.length === 0) {
+    rows.push(`│ ${pad(dim("No terminal output."), W - 4)} │`);
   } else {
-    for (const entry of entries) {
-      const line = `[${entry.channel}] ${entry.at} ${entry.message}`;
+    rows.push(`│ ${pad(dim(`Lines ${safeScroll + 1}-${safeScroll + visibleLines.length} of ${lines.length}`), W - 4)} │`);
+    for (const line of visibleLines) {
       for (const wrapped of wrapText(line, W - 4)) {
-        rows.push(`│ ${pad(entry.channel === "audio" ? color(wrapped, BRIGHT_CYAN) : color(wrapped, BRIGHT_YELLOW), W - 4)} │`);
+        rows.push(`│ ${pad(colorChannel ? color(wrapped, colorChannel) : wrapped, W - 4)} │`);
       }
     }
   }
+  if (prompt) {
+    rows.push(divider(W));
+    rows.push(`│ ${pad(`${prompt}${color(input, BRIGHT_WHITE)}${BLINK}_${RESET}`, W - 4)} │`);
+  }
   rows.push(bottomBorder(W));
-  rows.push(dim("X: Back"));
+  rows.push(dim(footer || "Arrow keys: Scroll   Esc: Back"));
   renderFrame(rows);
+}
+function renderTerminalBackdrop(state2, title) {
+  const W = getGameWidth();
+  const rows = [];
+  rows.push(topBorder(title, W));
+  rows.push(`│ ${pad(color("Terminal session attached to the lower system panel.", BRIGHT_CYAN), W - 4)} │`);
+  rows.push(`│ ${pad(dim("Use the terminal panel below for output and command entry."), W - 4)} │`);
+  rows.push(`│ ${pad(dim("Keyboard input remains active while this session is mounted."), W - 4)} │`);
+  rows.push(divider(W));
+  const available = Math.max(2, getTerminalSize().rows - rows.length - 2);
+  const statusLines = [
+    getSystemStatusLine(state2),
+    state2.player ? `Operator ${state2.player.name} // Zone ${ZONE_CONFIGS[state2.player.currentZone]?.displayName ?? state2.player.currentZone}` : "No active operator",
+    "Press Esc to detach from this terminal session."
+  ];
+  for (let i = 0; i < available; i++) {
+    rows.push(`│ ${pad(dim(statusLines[i] ?? ""), W - 4)} │`);
+  }
+  rows.push(bottomBorder(W));
+  renderFrame(rows);
+}
+function renderDebugLog(state2) {
+  const entries = getVisibleDebugEntries().map((entry) => `[${entry.channel}] ${entry.at} ${entry.message}`);
+  renderTerminalPanel({
+    title: "DEBUG LOG",
+    subtitle: ["Developer channel output."],
+    lines: entries.length > 0 ? entries : ["No debug entries recorded."],
+    scroll: state2.terminalScroll ?? state2.debugLogScroll ?? 0,
+    colorChannel: BRIGHT_YELLOW,
+    footer: "Arrow keys: Scroll   Enter/Esc: Back"
+  });
+}
+function renderGameLog(state2) {
+  const lines = state2.player?.gameLog ?? [];
+  renderTerminalPanel({
+    title: "GAME LOG",
+    subtitle: ["Public system event history."],
+    lines: lines.length > 0 ? lines : ["No public system events recorded."],
+    scroll: state2.terminalScroll ?? 0,
+    colorChannel: BRIGHT_CYAN,
+    footer: "Arrow keys: Scroll   Enter/Esc: Back"
+  });
+}
+function getFlagTerminalKey(player, zone) {
+  const rng = mulberry32(fnv1a(`${player.finalSecretKey}-${zone}-flag-key`));
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const length = 8 + Math.floor(rng() * 9);
+  let key = "";
+  for (let i = 0; i < length; i++) key += alphabet[Math.floor(rng() * alphabet.length)];
+  return key;
+}
+function getFlagFilesystem(player, zone) {
+  const key = getFlagTerminalKey(player, zone);
+  const rng = mulberry32(fnv1a(`${player.finalSecretKey}-${zone}-flag-fs`));
+  const flagPaths = [
+    "~/Users/root/.cache/.flag.key",
+    "~/var/backups/.snapshot/.flag.key",
+    "~/Trash/.recovered/.flag.key",
+    "~/opt/kernel/.modules/.flag.key",
+    "~/Docs/reports/archive/.flag.key"
+  ];
+  const flagPath = flagPaths[Math.floor(rng() * flagPaths.length)];
+  const fs = {
+    "~": { dirs: ["Docs", "Users", "Desktop", "Trash", "var", "tmp", "opt", "logs"], files: { "README.txt": "Kernel Breach recovery shell. Use ls -la to expose hidden handles." } },
+    "~/Docs": { dirs: ["reports", "notes"], files: { "manifest.txt": "Archived reports mention stale keys in nested paths." } },
+    "~/Docs/reports": { dirs: ["archive"], files: { "incident.log": "Privilege trails were moved deeper after the breach." } },
+    "~/Docs/reports/archive": { dirs: [], files: { "flag.txt": "decoy: this flag was revoked.", ".old.flag": "stale key: DENIED" } },
+    "~/Docs/notes": { dirs: [], files: { "todo.txt": "Remember: hidden files begin with a dot." } },
+    "~/Users": { dirs: ["root", "guest"], files: { "users.txt": "root guest" } },
+    "~/Users/root": { dirs: [".cache", "downloads"], files: { "sudo_notes.log": "sudo escalation requires the current flag key." } },
+    "~/Users/root/.cache": { dirs: [], files: { "trace.cache": "cached branch retained for root escalation." } },
+    "~/Users/root/downloads": { dirs: [], files: { "key.backup": "backup invalidated by kernel breach." } },
+    "~/Users/guest": { dirs: ["downloads"], files: { "readme.txt": "guest cannot escalate." } },
+    "~/Users/guest/downloads": { dirs: [], files: { "passwords.txt": "none of these are useful." } },
+    "~/Desktop": { dirs: ["old"], files: { "shortcut.lnk": "points nowhere." } },
+    "~/Desktop/old": { dirs: [], files: { "notes.log": "Hidden directories require ls -la." } },
+    "~/Trash": { dirs: [".recovered"], files: { "deleted.txt": "Trash was partially recovered." } },
+    "~/Trash/.recovered": { dirs: [], files: { "manifest.txt": "Recovered fragments may include dotfiles." } },
+    "~/var": { dirs: ["log", "backups"], files: { "state.db": "binary noise" } },
+    "~/var/log": { dirs: [], files: { "access.log": "failed sudo attempt from backup snapshot branch." } },
+    "~/var/backups": { dirs: [".snapshot"], files: { "backup.info": "Snapshots preserve hidden metadata." } },
+    "~/var/backups/.snapshot": { dirs: [], files: { "journal.log": "snapshot mounted read-only" } },
+    "~/tmp": { dirs: ["session"], files: { "scratch.tmp": "volatile data expired." } },
+    "~/tmp/session": { dirs: [], files: { "token.tmp": "expired token" } },
+    "~/opt": { dirs: ["kernel"], files: { "packages.list": "kernel modules installed." } },
+    "~/opt/kernel": { dirs: [".modules"], files: { "module.index": "some modules are hidden." } },
+    "~/opt/kernel/.modules": { dirs: [], files: { "driver.log": "device channel loaded." } },
+    "~/logs": { dirs: [], files: { "audit.log": "audit trail: search dot paths." } }
+  };
+  const dirPath = flagPath.slice(0, flagPath.lastIndexOf("/"));
+  const fileName = flagPath.slice(flagPath.lastIndexOf("/") + 1);
+  fs[dirPath].files[fileName] = key;
+  return { fs, key, flagPath };
+}
+function normalizeFlagPath(cwd, target) {
+  if (!target || target === "~") return "~";
+  const raw = target.startsWith("~/") ? target : `${cwd}/${target}`;
+  const parts = [];
+  for (const part of raw.split("/")) {
+    if (!part || part === ".") continue;
+    if (part === "~") {
+      parts.length = 0;
+      parts.push("~");
+    } else if (part === "..") {
+      if (parts.length > 1) parts.pop();
+    } else {
+      parts.push(part);
+    }
+  }
+  return parts.join("/");
+}
+function renderFlagTerminal(state2) {
+  const zone = state2.flagTerminal?.zone ?? state2.player.currentZone;
+  const cwd = state2.flagTerminal?.cwd ?? "~";
+  const lines = state2.flagTerminal?.log ?? [];
+  renderTerminalPanel({
+    title: "FLAG TERMINAL",
+    subtitle: [`Mounted recovery shell for ${ZONE_CONFIGS[zone]?.displayName ?? zone}.`, "Commands: ls, ls -la, cd, pwd, cat, sudo -s, clear"],
+    lines: lines.length > 0 ? lines : ["terminal mounted", "find .flag.key and escalate with sudo -s"],
+    input: state2.flagTerminal?.input ?? "",
+    prompt: state2.flagTerminal?.passwordMode ? "password: " : `${cwd}$ `,
+    scroll: state2.terminalScroll ?? 0,
+    footer: "Enter: Execute   Arrow keys: Scroll   Esc: Disconnect"
+  });
+}
+function appendFlagLog(state2, ...lines) {
+  return {
+    ...state2,
+    flagTerminal: {
+      ...state2.flagTerminal,
+      log: [...(state2.flagTerminal?.log ?? []), ...lines].slice(-160)
+    }
+  };
+}
+function executeFlagCommand(state2, rawInput) {
+  const terminal = state2.flagTerminal;
+  if (!terminal) return state2;
+  const zone = terminal.zone;
+  const data = getFlagFilesystem(state2.player, zone);
+  const input = rawInput.trim();
+  if (terminal.passwordMode) {
+    const keyInput = input.toUpperCase();
+    if (keyInput === data.key) {
+      const items = { ...state2.player.items, xp_patch: (state2.player.items.xp_patch ?? 0) + 1 };
+      const completedFlagZones = Array.from(new Set([...(state2.player.completedFlagZones ?? []), zone]));
+      return addMessage({
+        ...state2,
+        screen: "overworld",
+        flagTerminal: void 0,
+        terminalScroll: void 0,
+        player: { ...state2.player, items, completedFlagZones }
+      }, "Privilege escalation accepted. XP-Patch recovered.");
+    }
+    return appendFlagLog({ ...state2, flagTerminal: { ...terminal, input: "", passwordMode: false } }, "sudo: authentication failure");
+  }
+  if (!input) return state2;
+  const [command, ...args] = input.split(/\s+/);
+  let next = appendFlagLog(state2, `${terminal.cwd}$ ${input}`);
+  if (command === "clear") return { ...state2, flagTerminal: { ...terminal, log: [], input: "" } };
+  if (command === "pwd") return appendFlagLog(next, terminal.cwd);
+  if (command === "sudo" && args[0] === "-s") {
+    return appendFlagLog({ ...next, flagTerminal: { ...next.flagTerminal, passwordMode: true } }, "sudo: enter flag key");
+  }
+  if (command === "ls") {
+    const showHidden = args.includes("-la") || args.includes("-a");
+    const pathArg = args.find((arg) => !arg.startsWith("-"));
+    const path = normalizeFlagPath(terminal.cwd, pathArg || ".");
+    const node = data.fs[path];
+    if (!node) return appendFlagLog(next, `ls: cannot access '${pathArg || "."}': No such file or directory`);
+    const names = [...node.dirs.map((dir) => `${dir}/`), ...Object.keys(node.files)].filter((name) => showHidden || !name.startsWith("."));
+    return appendFlagLog(next, names.length > 0 ? names.join("  ") : "");
+  }
+  if (command === "cd") {
+    const target = args[0] || "~";
+    const path = normalizeFlagPath(terminal.cwd, target);
+    if (!data.fs[path]) return appendFlagLog(next, `cd: ${target}: No such directory`);
+    return { ...next, flagTerminal: { ...next.flagTerminal, cwd: path } };
+  }
+  if (command === "cat") {
+    const target = args[0];
+    if (!target) return appendFlagLog(next, "cat: missing file operand");
+    const path = normalizeFlagPath(terminal.cwd, target);
+    const dirPath = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "~";
+    const fileName = path.includes("/") ? path.slice(path.lastIndexOf("/") + 1) : path;
+    const node = data.fs[dirPath];
+    if (!node || !(fileName in node.files)) return appendFlagLog(next, `cat: ${target}: No such file`);
+    return appendFlagLog(next, node.files[fileName]);
+  }
+  return appendFlagLog(next, `${command}: command not found`);
+}
+function handleFlagTerminal(state2, key) {
+  const terminal = state2.flagTerminal;
+  if (!terminal) return { ...state2, screen: "overworld" };
+  const current = terminal.input ?? "";
+  const maxScroll = Math.max(0, (terminal.log ?? []).length - TERMINAL_PANEL_VISIBLE_LINES);
+  const currentScroll = clampInt(state2.terminalScroll, 0, maxScroll, maxScroll);
+  if (isCancel(key)) return { ...state2, screen: state2.previousScreen ?? "overworld", flagTerminal: void 0, terminalScroll: void 0 };
+  if (key === KEY.UP) return { ...state2, terminalScroll: Math.max(0, currentScroll - 1) };
+  if (key === KEY.DOWN) return { ...state2, terminalScroll: Math.min(maxScroll, currentScroll + 1) };
+  if (key === KEY.LEFT) return { ...state2, terminalScroll: 0 };
+  if (key === KEY.RIGHT) return { ...state2, terminalScroll: maxScroll };
+  if (key === KEY.BACKSPACE || key === KEY.BACKSPACE2) {
+    return { ...state2, flagTerminal: { ...terminal, input: current.slice(0, -1) } };
+  }
+  if (isConfirm(key)) {
+    const executed = executeFlagCommand(state2, current);
+    return { ...executed, flagTerminal: executed.flagTerminal ? { ...executed.flagTerminal, input: "" } : void 0, terminalScroll: 999999 };
+  }
+  const pattern = terminal.passwordMode ? /^[A-Za-z0-9]$/ : /^[A-Za-z0-9 ._~\/-]$/;
+  const maxLength = terminal.passwordMode ? 16 : 48;
+  if (canAppendInputChar(current, key, maxLength, pattern)) {
+    return { ...state2, flagTerminal: { ...terminal, input: terminal.passwordMode ? current + key.toUpperCase() : current + key } };
+  }
+  return state2;
 }
 function appendScriptTerminalLog(state2, ...lines) {
   const nextLog = [...(state2.scriptTerminalLog ?? []), ...lines];
@@ -4544,6 +5046,7 @@ function openScriptsTerminal(state2, previousScreen) {
     previousScreen,
     menuReturnScreen: previousScreen === "menu" ? state2.menuReturnScreen : state2.menuReturnScreen ?? previousScreen,
     scriptInput: "",
+    terminalScroll: 0,
     menuCursor: 0
   };
   if (!state2.scriptTerminalLog || state2.scriptTerminalLog.length === 0) {
@@ -4551,8 +5054,27 @@ function openScriptsTerminal(state2, previousScreen) {
   }
   return next;
 }
+function renderScriptsTerminal(state2) {
+  const discovered = getDiscoveredScripts(state2.player);
+  const history = state2.scriptTerminalLog ?? [];
+  renderTerminalPanel({
+    title: "SCRIPT TERMINAL",
+    subtitle: [
+      "Recovered scripts can be executed from this terminal.",
+      `Recovered: ${discovered.length > 0 ? discovered.join(", ") : "none"}`
+    ],
+    lines: history.length > 0 ? history : ["script terminal initialized", "type help to list available commands"],
+    input: state2.scriptInput ?? "",
+    prompt: "> ",
+    scroll: state2.terminalScroll ?? 0,
+    footer: "Enter: Execute   clear: Clear terminal   Arrow keys: Scroll   Esc: Back"
+  });
+}
 function executeFieldScript(state2, rawInput) {
   const scriptName = rawInput.trim().toLowerCase();
+  if (scriptName === "clear") {
+    return { ...state2, scriptTerminalLog: [] };
+  }
   let next = appendScriptTerminalLog(state2, `> ${scriptName}`);
   if (!scriptName) {
     return next;
@@ -4634,16 +5156,23 @@ function executeFieldScript(state2, rawInput) {
 }
 function handleScriptsTerminal(state2, key) {
   const current = state2.scriptInput ?? "";
+  const historyLength = (state2.scriptTerminalLog ?? []).length;
+  const maxScroll = Math.max(0, historyLength - TERMINAL_PANEL_VISIBLE_LINES);
+  const currentScroll = clampInt(state2.terminalScroll, 0, maxScroll, maxScroll);
   if (isCancel(key)) {
     const returnScreen = state2.previousScreen === "menu" ? "menu" : state2.previousScreen ?? "overworld";
-    return { ...state2, screen: returnScreen, scriptInput: "", menuCursor: returnScreen === "menu" ? getMenuOptionIndex(state2, "Scripts") : state2.menuCursor };
+    return { ...state2, screen: returnScreen, scriptInput: "", terminalScroll: void 0, menuCursor: returnScreen === "menu" ? getMenuOptionIndex(state2, "Scripts") : state2.menuCursor };
   }
+  if (key === KEY.UP) return { ...state2, terminalScroll: Math.max(0, currentScroll - 1) };
+  if (key === KEY.DOWN) return { ...state2, terminalScroll: Math.min(maxScroll, currentScroll + 1) };
+  if (key === KEY.LEFT) return { ...state2, terminalScroll: 0 };
+  if (key === KEY.RIGHT) return { ...state2, terminalScroll: maxScroll };
   if (key === KEY.BACKSPACE || key === KEY.BACKSPACE2) {
     return { ...state2, scriptInput: current.slice(0, -1) };
   }
   if (isConfirm(key)) {
     const executed = executeFieldScript(state2, current);
-    return { ...executed, scriptInput: "" };
+    return { ...executed, scriptInput: "", terminalScroll: 999999 };
   }
   if (canAppendInputChar(current, key, 12, SCRIPT_NAME_PATTERN)) {
     return { ...state2, scriptInput: current + key.toLowerCase() };
@@ -4652,8 +5181,28 @@ function handleScriptsTerminal(state2, key) {
 }
 function handleDebugLog(state2, key) {
   if (isCancel(key) || isConfirm(key)) {
-    return { ...state2, screen: state2.previousScreen ?? "developer_options", menuCursor: 0 };
+    return { ...state2, screen: state2.previousScreen ?? "developer_options", menuCursor: 0, debugLogScroll: void 0, terminalScroll: void 0 };
   }
+  const available = TERMINAL_PANEL_VISIBLE_LINES;
+  const maxScroll = Math.max(0, getVisibleDebugEntries().length - available);
+  const current = clampInt(state2.terminalScroll ?? state2.debugLogScroll, 0, maxScroll, maxScroll);
+  if (isUp(key)) return { ...state2, terminalScroll: Math.max(0, current - 1), debugLogScroll: void 0 };
+  if (isDown(key)) return { ...state2, terminalScroll: Math.min(maxScroll, current + 1), debugLogScroll: void 0 };
+  if (isLeft(key)) return { ...state2, terminalScroll: 0, debugLogScroll: void 0 };
+  if (isRight(key)) return { ...state2, terminalScroll: maxScroll, debugLogScroll: void 0 };
+  return state2;
+}
+function handleGameLog(state2, key) {
+  if (isCancel(key) || isConfirm(key)) {
+    return { ...state2, screen: state2.previousScreen ?? "menu", terminalScroll: void 0, menuCursor: getMenuOptionIndex(state2, "Game Log") };
+  }
+  const available = TERMINAL_PANEL_VISIBLE_LINES;
+  const maxScroll = Math.max(0, (state2.player?.gameLog ?? []).length - available);
+  const current = clampInt(state2.terminalScroll, 0, maxScroll, maxScroll);
+  if (isUp(key)) return { ...state2, terminalScroll: Math.max(0, current - 1) };
+  if (isDown(key)) return { ...state2, terminalScroll: Math.min(maxScroll, current + 1) };
+  if (isLeft(key)) return { ...state2, terminalScroll: 0 };
+  if (isRight(key)) return { ...state2, terminalScroll: maxScroll };
   return state2;
 }
 
@@ -4663,6 +5212,7 @@ var DUNGEON_ENCOUNTER_RATE = 0.3;
 var SPLASH_FRAMES = 28;
 var LAUNCH_ANIMATION_FRAMES = 112;
 var LAUNCH_SKIP_FRAMES = 20;
+var TERMINAL_PANEL_VISIBLE_LINES = 18;
 var STATIC_FIELD_GLYPHS = ["~", "-", "~", "-"];
 var DUNGEON_WAVE_GLYPHS = {
   central: ["~", "-", "~", "-"],
@@ -4677,11 +5227,26 @@ var DUNGEON_WAVE_GLYPHS = {
   tmp: ["~", ".", "~", "."],
   dev: ["~", "=", "~", "="]
 };
+var DEFAULT_TITLE_MESSAGE = "Welcome to Kernel Breach. Purge polymorphic viruses before rm -rf / reaches the kernel.";
+function formatTitleRuntimeError(error) {
+  const detail = error?.message ? `: ${error.message}` : "";
+  return `Kernel load failed. Internal fault detected${detail}`;
+}
+function createTitleState(titleMessage = DEFAULT_TITLE_MESSAGE) {
+  return {
+    ...createInitialState(),
+    screen: "title",
+    splashFrame: void 0,
+    menuCursor: 0,
+    titleMessage
+  };
+}
 function createInitialState() {
   return {
     screen: "splash",
     player: null,
     messages: [],
+    titleMessage: DEFAULT_TITLE_MESSAGE,
     menuCursor: 0,
     nameInput: "",
     passwordInput: "",
@@ -4702,8 +5267,11 @@ function createNewPlayer(name) {
     items: { potion: 2 },
     defeatedBosses: [],
     targetLog: [],
+    gameLog: [],
     discoveredScripts: [],
     hiddenScriptsByZone: buildZoneScriptLocations(finalSecretKey),
+    flagTerminalsByZone: buildFlagTerminalLocations(finalSecretKey),
+    completedFlagZones: [],
     recoveredScriptZones: [],
     keyPieces: [],
     finalSecretKey,
@@ -4716,6 +5284,8 @@ function createNewPlayer(name) {
     allDungeonsUnlocked: false,
     noEncounters: false,
     bgmMuted: false,
+    showCoordinates: false,
+    debugChannels: {},
     audioDebug: false,
     verboseDebug: false
   };
@@ -4756,8 +5326,11 @@ function createTutorialPlayer() {
     items: { potion: 2 },
     defeatedBosses: [],
     targetLog: [],
+    gameLog: [],
     discoveredScripts: ["sniff"],
     hiddenScriptsByZone: {},
+    flagTerminalsByZone: {},
+    completedFlagZones: [...Object.keys(ZONE_CONFIGS)],
     recoveredScriptZones: [...OVERWORLD_SCRIPT_ZONES],
     keyPieces: [],
     finalSecretKey: generateFinalSecretKey(),
@@ -4770,12 +5343,15 @@ function createTutorialPlayer() {
     allDungeonsUnlocked: false,
     noEncounters: true,
     bgmMuted: false,
+    showCoordinates: false,
+    debugChannels: {},
     audioDebug: false,
     verboseDebug: false
   });
 }
 function createTutorialState(state2) {
   const player = createTutorialPlayer();
+  tutorialDebug("tutorial started");
   return {
     ...state2,
     screen: "overworld",
@@ -4817,6 +5393,7 @@ function createTutorialBattleState(state2) {
     canCatch: true,
     log: ["Training process spawned: Training-Duck."]
   };
+  tutorialDebug("tutorial battle started");
   return {
     ...state2,
     screen: "battle",
@@ -4831,6 +5408,7 @@ function createTutorialBattleState(state2) {
   };
 }
 function completeTutorial(state2) {
+  tutorialDebug("tutorial completed");
   return {
     ...state2,
     screen: "tutorial_complete",
@@ -4846,8 +5424,20 @@ function completeTutorial(state2) {
     }
   };
 }
+function addGameLog(state2, message) {
+  if (!state2.player || typeof message !== "string" || message.length === 0) return state2;
+  const entry = `${new Date().toLocaleTimeString()} ${message}`;
+  return {
+    ...state2,
+    player: {
+      ...state2.player,
+      gameLog: [...(state2.player.gameLog ?? []), entry].slice(-120)
+    }
+  };
+}
 function addMessage(state2, msg) {
-  return { ...state2, messages: [...state2.messages.slice(-20), msg] };
+  const withMessage = { ...state2, messages: [...state2.messages.slice(-20), msg] };
+  return addGameLog(withMessage, msg);
 }
 function getAudioContextScreen(state2) {
   if (!state2) return "title";
@@ -4879,21 +5469,26 @@ function getDesiredBgmTrack(state2) {
   if (context === "victory") return "victory";
   return null;
 }
+function syncDebugConfigForState(state2) {
+  if (!state2.player) {
+    setDebugConfig({ channels: {}, verbose: false });
+    return;
+  }
+  setDebugConfig({
+    channels: {
+      ...(state2.player.debugChannels ?? {}),
+      audio: (state2.player.debugChannels?.audio ?? state2.player.audioDebug) === true
+    },
+    verbose: state2.player.verboseDebug === true
+  });
+}
 function syncAudioForState(state2) {
   const muted = state2.player?.bgmMuted ?? false;
-  if (state2.player) {
-    setAudioDebugEnabled((state2.player.audioDebug ?? false) || process.env.KERNELBREACH_AUDIO_DEBUG === "1");
-    setEngineDebugEnabled((state2.player.verboseDebug ?? false) || process.env.KERNELBREACH_VERBOSE_DEBUG === "1");
-  }
+  syncDebugConfigForState(state2);
   audioManager.sync(getDesiredBgmTrack(state2), muted);
 }
 function handleSplash(state2) {
-  return {
-    ...state2,
-    screen: "title",
-    splashFrame: void 0,
-    menuCursor: 0
-  };
+  return createTitleState(state2.titleMessage || DEFAULT_TITLE_MESSAGE);
 }
 function handleTitle(state2, key) {
   const opts = 4;
@@ -4925,7 +5520,7 @@ function handleNewGameName(state2, key) {
       menuCursor: 0
     };
   }
-  if (isCancel(key)) return { ...state2, screen: "title", menuCursor: 0 };
+  if (isCancel(key)) return createTitleState();
   if (canAppendInputChar(name, key, 32, CHARACTER_NAME_PATTERN)) {
     return { ...state2, nameInput: name + key };
   }
@@ -4944,16 +5539,9 @@ function handleNewGamePassword(state2, key) {
         menuCursor: 0
       };
     }
-    return addMessage({
-      ...state2,
-      screen: "title",
-      menuCursor: 0,
-      nameInput: "",
-      passwordInput: "",
-      loginUser: ""
-    }, "**ACCESS DENIED**CHECK GAME'S ROOT DIRECTORY FOR CLUES**");
+    return createTitleState("**ACCESS DENIED**CHECK GAME'S ROOT DIRECTORY FOR CLUES**");
   }
-  if (isCancel(key)) return { ...state2, screen: "title", menuCursor: 0, passwordInput: "", loginUser: "", nameInput: "" };
+  if (isCancel(key)) return createTitleState();
   if (canAppendInputChar(password, key, 32, PASSWORD_INPUT_PATTERN)) {
     return { ...state2, passwordInput: password + key };
   }
@@ -4990,7 +5578,7 @@ function handleLoadGame(state2, key) {
   const opts = slots.length;
   if (isUp(key)) return { ...state2, menuCursor: (state2.menuCursor - 1 + opts) % opts };
   if (isDown(key)) return { ...state2, menuCursor: (state2.menuCursor + 1) % opts };
-  if (isCancel(key)) return { ...state2, screen: "title", menuCursor: 0 };
+  if (isCancel(key)) return createTitleState();
   if (isConfirm(key)) {
     const slot = slots[state2.menuCursor];
     if (!slot?.exists) return addMessage(state2, "That slot is empty.");
@@ -5025,19 +5613,6 @@ function handleOverworld(state2, key) {
   }
   if (key === KEY.i || key === KEY.I) {
     return openInventory(state2, "overworld", "field");
-  }
-  if (key === KEY.e || key === KEY.E) {
-    const map = ZONE_MAPS[state2.player.currentZone];
-    const { x, y } = state2.player.position;
-    const neighbors = [{ dx: 0, dy: -1 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 1, dy: 0 }];
-    for (const { dx, dy } of neighbors) {
-      const nx = x + dx;
-      const ny = y + dy;
-      if (nx >= 0 && nx < MAP_WIDTH && ny >= 0 && ny < MAP_HEIGHT && getTile(map, nx, ny) === "D") {
-        return enterDungeon(state2);
-      }
-    }
-    return addMessage(state2, "There is no breach site ingress nearby.");
   }
   let dir = null;
   if (isUp(key)) dir = "up";
@@ -5094,10 +5669,10 @@ function handleTutorialOverworld(state2, key) {
     return addMessage(state2, "Tutorial: press I to open Patches.");
   }
   if (step === "start_battle") {
-    if (key === KEY.e || key === KEY.E || isConfirm(key)) {
+    if (isConfirm(key)) {
       return createTutorialBattleState(state2);
     }
-    return addMessage(state2, "Tutorial: press E to start a training battle.");
+    return addMessage(state2, "Tutorial: press Enter to start a training battle.");
   }
   return state2;
 }
@@ -5119,6 +5694,8 @@ function moveOverworld(state2, dir) {
     player: { ...player, position: { x: nx, y: ny } }
   };
   s = discoverZoneScript(s);
+  s = discoverFlagTerminal(s);
+  if (s.screen === "flag_terminal") return s;
   if (tile === "O") {
     s = healParty(s);
   } else if (tile === "$") {
@@ -5175,7 +5752,7 @@ function handleZoneTransition(state2, dir, x, y) {
   const entryDir = oppositeDirection(dir);
   const preferredEntry = destCfg.playerEntry[entryDir];
   const safeEntry = findNearestWalkablePosition(destZone, preferredEntry.x, preferredEntry.y);
-  engineDebug(`zone transition ${zone} -> ${destZone} via ${dir} from (${x},${y}) to (${safeEntry.x},${safeEntry.y})`);
+  mapDebug(`zone transition ${zone} -> ${destZone} via ${dir} from (${x},${y}) to (${safeEntry.x},${safeEntry.y})`);
   return addMessage({
     ...state2,
     player: { ...player, currentZone: destZone, position: safeEntry }
@@ -5227,7 +5804,7 @@ function enterDungeon(state2) {
     bossDefeated: player.defeatedBosses.includes(ZONE_CONFIGS[player.currentZone].bossSpecies),
     bossPos: { ...cfg.bossPos }
   };
-  engineDebug(`enter dungeon zone=${zone} start=(${cfg.startPos.x},${cfg.startPos.y}) bossDefeated=${dungeon.bossDefeated}`);
+  mapDebug(`enter dungeon zone=${zone} start=(${cfg.startPos.x},${cfg.startPos.y}) bossDefeated=${dungeon.bossDefeated}`);
   return addMessage({
     ...state2,
     screen: "dungeon",
@@ -5240,7 +5817,7 @@ function startWildBattle(state2) {
   if (idx < 0) return state2;
   const level = player.party[idx].level;
   const battle = createWildBattle(player.currentZone, player.party[idx], idx, level);
-  engineDebug(`start wild battle zone=${player.currentZone} player=${player.party[idx].nickname} enemy=${battle.enemy.creature.nickname} level=${battle.enemy.creature.level}`);
+  battleDebug(`start wild battle zone=${player.currentZone} player=${player.party[idx].nickname} enemy=${battle.enemy.creature.nickname} level=${battle.enemy.creature.level}`);
   return { ...state2, screen: "battle", battle, previousScreen: "overworld" };
 }
 function handleDungeon(state2, key) {
@@ -5300,6 +5877,7 @@ function moveDungeon(state2, dir) {
       if (idx >= 0) {
         const level = player.party[idx].level;
         const battle = createDungeonWildBattle(dungeon.zone, player.party[idx], idx, level);
+        battleDebug(`start dungeon wild battle zone=${dungeon.zone} player=${player.party[idx].nickname} enemy=${battle.enemy.creature.nickname} level=${battle.enemy.creature.level}`);
         return { ...s, screen: "battle", battle, previousScreen: "dungeon" };
       }
     }
@@ -5309,7 +5887,7 @@ function moveDungeon(state2, dir) {
 function exitDungeon(state2) {
   const { dungeon, player } = state2;
   if (!dungeon) return state2;
-  engineDebug(`exit dungeon zone=${dungeon.zone} returnPos=(${dungeon.entryPos.x},${dungeon.entryPos.y})`);
+  mapDebug(`exit dungeon zone=${dungeon.zone} returnPos=(${dungeon.entryPos.x},${dungeon.entryPos.y})`);
   return addMessage({
     ...state2,
     screen: "overworld",
@@ -5323,7 +5901,7 @@ function startBossBattle(state2) {
   const idx = getFirstLivingIndex(player.party);
   if (idx < 0) return state2;
   const battle = createBossBattle(dungeon.zone, player.party[idx], idx);
-  engineDebug(`start boss battle zone=${dungeon.zone} player=${player.party[idx].nickname} boss=${battle.enemy.creature.nickname} level=${battle.enemy.creature.level}`);
+  battleDebug(`start boss battle zone=${dungeon.zone} player=${player.party[idx].nickname} boss=${battle.enemy.creature.nickname} level=${battle.enemy.creature.level}`);
   return addMessage({ ...state2, screen: "battle", battle, previousScreen: "dungeon" }, `A corrupted Security Daemon denies further access.`);
 }
 function shouldProtectTutorialBattle(state2, battle) {
@@ -5389,12 +5967,7 @@ function advanceAnimations(state2) {
   if (state2.screen === "splash") {
     const nextFrame = (state2.splashFrame ?? 0) + 1;
     if (nextFrame >= SPLASH_FRAMES) {
-      return {
-        ...state2,
-        screen: "title",
-        splashFrame: void 0,
-        menuCursor: 0
-      };
+      return createTitleState(state2.titleMessage || DEFAULT_TITLE_MESSAGE);
     }
     return { ...state2, splashFrame: nextFrame };
   }
@@ -5445,6 +6018,24 @@ function useFieldItem(state2, itemId, targetIdx) {
   const target = state2.player.party[targetIdx];
   const count = state2.player.items[itemId] ?? 0;
   if (!item || !target || count <= 0) return addMessage(state2, "That patch is unavailable.");
+  if (item.levelAmount) {
+    if (target.level >= 50) return addMessage(state2, `${target.nickname} is already at maximum level.`);
+    const updatedTarget = addXp(target, target.xpToNext - target.xp).creature;
+    const newParty = [...state2.player.party];
+    newParty[targetIdx] = updatedTarget;
+    const newItems = { ...state2.player.items, [itemId]: count - 1 };
+    const returnScreen = state2.inventoryReturnScreen === "menu" ? "menu" : state2.menuReturnScreen ?? state2.inventoryReturnScreen ?? "overworld";
+    return addMessage({
+      ...state2,
+      screen: returnScreen,
+      previousScreen: returnScreen === "menu" ? state2.menuReturnScreen ?? "overworld" : state2.previousScreen,
+      inventoryReturnScreen: void 0,
+      selectedItemId: void 0,
+      itemUseContext: void 0,
+      player: { ...state2.player, party: newParty, items: newItems },
+      menuCursor: returnScreen === "menu" ? getMenuOptionIndex(state2, "Patches") : 0
+    }, `${item.name} applied to ${target.nickname}. Level advanced to ${updatedTarget.level}.`);
+  }
   if (target.currentHp >= target.maxHp) return addMessage(state2, `${target.nickname} is already at full memory.`);
   const healAmount = Math.min(item.healAmount, target.maxHp - target.currentHp);
   const updatedTarget = { ...target, currentHp: Math.min(target.maxHp, target.currentHp + item.healAmount) };
@@ -5467,12 +6058,24 @@ function useFieldItem(state2, itemId, targetIdx) {
 function useBattleItem(state2, itemId) {
   const { battle, player } = state2;
   if (!battle) return state2;
+  inputDebug(`battle inventory item=${itemId}`);
   const tutorialBlock = getTutorialBattleActionMessage(state2, "item");
-  if (tutorialBlock) return addMessage({ ...state2, screen: "battle", inventoryReturnScreen: void 0, selectedItemId: void 0, itemUseContext: void 0 }, tutorialBlock);
+  if (tutorialBlock) {
+    battleDebug(`tutorial blocked action=item message=${JSON.stringify(tutorialBlock)}`);
+    return addMessage({ ...state2, screen: "battle", inventoryReturnScreen: void 0, selectedItemId: void 0, itemUseContext: void 0 }, tutorialBlock);
+  }
   const item = ITEMS[itemId];
   const count = player.items[itemId] ?? 0;
-  if (!item || count <= 0) return addMessage(state2, "That patch is unavailable.");
+  if (!item || count <= 0) {
+    battleDebug(`patch unavailable item=${itemId} count=${count}`);
+    return addMessage(state2, "That patch is unavailable.");
+  }
+  if (item.fieldOnly || !item.healAmount) {
+    battleDebug(`patch skipped item=${itemId} reason=field-only`);
+    return addMessage(state2, `${item.name} cannot execute during battle.`);
+  }
   if (battle.player.creature.currentHp >= battle.player.creature.maxHp) {
+    battleDebug(`patch skipped target=${battle.player.creature.nickname} reason=full-memory`);
     return addMessage({
       ...state2,
       screen: "battle",
@@ -5621,9 +6224,9 @@ function renderBattle(state2) {
   }
   const eStatus = getStatusIcons(battle.enemy);
   const pStatus = getStatusIcons(battle.player);
-  const catchAvail = battle.canCatch && enemy.currentHp / enemy.maxHp <= 0.5 ? color(" [CATCHABLE!]", BRIGHT_MAGENTA) : "";
-  const statusLeft = pad(eStatus, leftCombatW, "center");
-  const statusRight = pad(`${catchAvail}${pStatus}`, rightCombatW, "center");
+  const linkAvail = battle.canCatch && enemy.currentHp / enemy.maxHp <= 0.5 ? color(" [LINKABLE!]", BRIGHT_MAGENTA) : "";
+  const statusLeft = pad(`${eStatus}${linkAvail}`, leftCombatW, "center");
+  const statusRight = pad(pStatus, rightCombatW, "center");
   pushRow(`\u2502${statusLeft}${statusRight}\u2502`);
   pushRow(divider(W));
   const logLines = battle.log.slice(-4);
@@ -5696,19 +6299,44 @@ function renderBattle(state2) {
 function handleBattle(state2, key) {
   const { battle, player } = state2;
   if (!battle) return state2;
-  if (state2.battleAnimation) return state2;
+  const battleInputSignature = getBattleInputSignature(battle, key);
+  const shouldLogBattleInput = battleInputSignature !== lastInputDebugSignature;
+  const battleInputDebug = (message) => {
+    if (!shouldLogBattleInput) return;
+    if (inputDebug(message)) lastInputDebugSignature = battleInputSignature;
+  };
+  battleInputDebug(`battle key=${formatDebugKey(key)} phase=${battle.phase} mode=${getBattleInputMode(battle)} cursor=${battle.actionCursor}`);
+  if (state2.battleAnimation) {
+    battleInputDebug(`battle input ignored reason=animation key=${formatDebugKey(key)}`);
+    return state2;
+  }
   if (battle.phase === "result" || battle.phase === "catch_result") {
-    if (isConfirm(key)) return resolveBattleEnd(state2);
+    if (isConfirm(key)) {
+      battleInputDebug(`battle result confirmed key=${formatDebugKey(key)} result=${battle.result ?? "none"}`);
+      return resolveBattleEnd(state2);
+    }
     return state2;
   }
   if (battle.phase !== "player_action") return state2;
   if (battle.selectingSkill) {
     const skills = battle.player.creature.skills;
-    if (isLeft(key) || isUp(key)) return { ...state2, battle: { ...battle, skillCursor: (battle.skillCursor - 1 + skills.length) % skills.length } };
-    if (isRight(key) || isDown(key)) return { ...state2, battle: { ...battle, skillCursor: (battle.skillCursor + 1) % skills.length } };
-    if (isCancel(key)) return { ...state2, battle: { ...battle, selectingSkill: false } };
+    if (isLeft(key) || isUp(key)) {
+      const nextCursor = (battle.skillCursor - 1 + skills.length) % skills.length;
+      battleInputDebug(`battle skill cursor=${nextCursor} skill=${skills[nextCursor]}`);
+      return { ...state2, battle: { ...battle, skillCursor: nextCursor } };
+    }
+    if (isRight(key) || isDown(key)) {
+      const nextCursor = (battle.skillCursor + 1) % skills.length;
+      battleInputDebug(`battle skill cursor=${nextCursor} skill=${skills[nextCursor]}`);
+      return { ...state2, battle: { ...battle, skillCursor: nextCursor } };
+    }
+    if (isCancel(key)) {
+      battleInputDebug("battle skill selector closed");
+      return { ...state2, battle: { ...battle, selectingSkill: false } };
+    }
     if (isConfirm(key)) {
       const skillName = skills[battle.skillCursor];
+      battleInputDebug(`battle skill confirmed skill=${skillName}`);
       return executeBattleAction(state2, "skill", { skillName });
     }
     return state2;
@@ -5716,11 +6344,23 @@ function handleBattle(state2, key) {
   if (battle.selectingScript) {
     const scripts = getBattleScripts(player);
     if (scripts.length === 0) return { ...state2, battle: { ...battle, selectingScript: false, scriptCursor: 0 } };
-    if (isLeft(key) || isUp(key)) return { ...state2, battle: { ...battle, scriptCursor: (battle.scriptCursor - 1 + scripts.length) % scripts.length } };
-    if (isRight(key) || isDown(key)) return { ...state2, battle: { ...battle, scriptCursor: (battle.scriptCursor + 1) % scripts.length } };
-    if (isCancel(key)) return { ...state2, battle: { ...battle, selectingScript: false } };
+    if (isLeft(key) || isUp(key)) {
+      const nextCursor = (battle.scriptCursor - 1 + scripts.length) % scripts.length;
+      battleInputDebug(`battle script cursor=${nextCursor} script=${scripts[nextCursor]}`);
+      return { ...state2, battle: { ...battle, scriptCursor: nextCursor } };
+    }
+    if (isRight(key) || isDown(key)) {
+      const nextCursor = (battle.scriptCursor + 1) % scripts.length;
+      battleInputDebug(`battle script cursor=${nextCursor} script=${scripts[nextCursor]}`);
+      return { ...state2, battle: { ...battle, scriptCursor: nextCursor } };
+    }
+    if (isCancel(key)) {
+      battleInputDebug("battle script selector closed");
+      return { ...state2, battle: { ...battle, selectingScript: false } };
+    }
     if (isConfirm(key)) {
       const scriptName = scripts[battle.scriptCursor];
+      battleInputDebug(`battle script confirmed script=${scriptName}`);
       return executeBattleAction(state2, "script", { scriptName });
     }
     return state2;
@@ -5728,25 +6368,47 @@ function handleBattle(state2, key) {
   if (battle.selectingSwitch) {
     const partySize = player.party.length;
     if (partySize === 0) return { ...state2, battle: { ...battle, selectingSwitch: false, switchCursor: 0 } };
-    if (isLeft(key) || isUp(key)) return { ...state2, battle: { ...battle, switchCursor: ((battle.switchCursor ?? 0) - 1 + partySize) % partySize } };
-    if (isRight(key) || isDown(key)) return { ...state2, battle: { ...battle, switchCursor: ((battle.switchCursor ?? 0) + 1) % partySize } };
+    if (isLeft(key) || isUp(key)) {
+      const nextCursor = ((battle.switchCursor ?? 0) - 1 + partySize) % partySize;
+      battleInputDebug(`battle switch cursor=${nextCursor} target=${player.party[nextCursor]?.nickname ?? "empty"}`);
+      return { ...state2, battle: { ...battle, switchCursor: nextCursor } };
+    }
+    if (isRight(key) || isDown(key)) {
+      const nextCursor = ((battle.switchCursor ?? 0) + 1) % partySize;
+      battleInputDebug(`battle switch cursor=${nextCursor} target=${player.party[nextCursor]?.nickname ?? "empty"}`);
+      return { ...state2, battle: { ...battle, switchCursor: nextCursor } };
+    }
     if (key >= "1" && key <= "4") {
       const idx = parseInt(key) - 1;
+      battleInputDebug(`battle switch hotkey index=${idx}`);
       return executeBattleAction(state2, "switch", { switchToIndex: idx });
     }
-    if (isCancel(key)) return { ...state2, battle: { ...battle, selectingSwitch: false, switchCursor: 0 } };
+    if (isCancel(key)) {
+      battleInputDebug("battle switch selector closed");
+      return { ...state2, battle: { ...battle, selectingSwitch: false, switchCursor: 0 } };
+    }
     if (isConfirm(key)) {
+      battleInputDebug(`battle switch confirmed index=${battle.switchCursor ?? 0}`);
       return executeBattleAction(state2, "switch", { switchToIndex: battle.switchCursor ?? 0 });
     }
     return state2;
   }
   const actionEntries = getBattleActionEntries(state2);
   const actionCount = actionEntries.length;
-  if (isUp(key) || isLeft(key)) return { ...state2, battle: { ...battle, actionCursor: (battle.actionCursor - 1 + actionCount) % actionCount } };
-  if (isDown(key) || isRight(key)) return { ...state2, battle: { ...battle, actionCursor: (battle.actionCursor + 1) % actionCount } };
+  if (isUp(key) || isLeft(key)) {
+    const nextCursor = (battle.actionCursor - 1 + actionCount) % actionCount;
+    battleInputDebug(`battle action cursor=${nextCursor} action=${actionEntries[nextCursor]?.action ?? "unknown"}`);
+    return { ...state2, battle: { ...battle, actionCursor: nextCursor } };
+  }
+  if (isDown(key) || isRight(key)) {
+    const nextCursor = (battle.actionCursor + 1) % actionCount;
+    battleInputDebug(`battle action cursor=${nextCursor} action=${actionEntries[nextCursor]?.action ?? "unknown"}`);
+    return { ...state2, battle: { ...battle, actionCursor: nextCursor } };
+  }
   if (key >= "1" && key <= "4") {
     if (isTutorialActive(state2)) return addMessage(state2, "Tutorial: follow the highlighted battle prompt.");
     const idx = parseInt(key) - 1;
+    battleInputDebug(`battle party hotkey index=${idx}`);
     const plan = planBattleAction(battle, "switch", player.party, player.items, { switchToIndex: idx });
     return startBattleSequence({ ...state2, battle: plan.initialBattle }, {
       steps: plan.steps,
@@ -5754,8 +6416,9 @@ function handleBattle(state2, key) {
       frame: 0
     });
   }
-  if (isConfirm(key) || key === KEY.e || key === KEY.E) {
+  if (isConfirm(key)) {
     const action = actionEntries[battle.actionCursor]?.action;
+    battleInputDebug(`battle action confirmed action=${action ?? "unknown"}`);
     if (action === "skill") return { ...state2, battle: { ...battle, selectingSkill: true, skillCursor: 0 } };
     if (action === "script") {
       const scripts = getBattleScripts(player);
@@ -5768,11 +6431,26 @@ function handleBattle(state2, key) {
     }
     return executeBattleAction(state2, action);
   }
-  if (key === "s" || key === "S") return { ...state2, battle: { ...battle, selectingSkill: true, skillCursor: 0 } };
-  if (key === "d" || key === "D") return executeBattleAction(state2, "defend");
-  if (key === "i" || key === "I") return executeBattleAction(state2, "item");
-  if (key === "f" || key === "F") return executeBattleAction(state2, "flee");
-  if (key === "c" || key === "C") return executeBattleAction(state2, "capture");
+  if (key === "s" || key === "S") {
+    battleInputDebug("battle hotkey action=skill");
+    return { ...state2, battle: { ...battle, selectingSkill: true, skillCursor: 0 } };
+  }
+  if (key === "d" || key === "D") {
+    battleInputDebug("battle hotkey action=defend");
+    return executeBattleAction(state2, "defend");
+  }
+  if (key === "i" || key === "I") {
+    battleInputDebug("battle hotkey action=patch");
+    return executeBattleAction(state2, "item");
+  }
+  if (key === "f" || key === "F") {
+    battleInputDebug("battle hotkey action=flee");
+    return executeBattleAction(state2, "flee");
+  }
+  if (key === "c" || key === "C") {
+    battleInputDebug("battle hotkey action=link");
+    return executeBattleAction(state2, "capture");
+  }
   return state2;
 }
 function getTutorialBattleActionMessage(state2, action) {
@@ -5807,8 +6485,12 @@ function executeBattleAction(state2, action, options = {}) {
   const { battle, player } = state2;
   if (!battle) return state2;
   const tutorialBlock = getTutorialBattleActionMessage(state2, action);
-  if (tutorialBlock) return addMessage(state2, tutorialBlock);
+  if (tutorialBlock) {
+    battleDebug(`tutorial blocked action=${action} message=${JSON.stringify(tutorialBlock)}`);
+    return addMessage(state2, tutorialBlock);
+  }
   if (action === "item") {
+    battleDebug(`player action=patch-open-inventory actor=${battle.player.creature.nickname}`);
     return openInventory({ ...state2, menuCursor: 0 }, "battle", "battle");
   }
   const plan = planBattleAction(battle, action, player.party, player.items, options);
@@ -5827,6 +6509,7 @@ function resolveBattleEnd(state2) {
   const { battle, player, previousScreen } = state2;
   if (!battle) return state2;
   const returnScreen = previousScreen ?? "overworld";
+  battleDebug(`battle end result=${battle.result ?? "none"} context=${battle.context} return=${returnScreen}`);
   if (isTutorialActive(state2) && ["flee", "caught", "win"].includes(battle.result)) {
     return completeTutorial(state2);
   }
@@ -5853,6 +6536,7 @@ function continueBattleAfterFaint(state2) {
   const nextIdx = player.party.findIndex((creature, idx) => idx !== battle.playerActiveIndex && creature.currentHp > 0);
   if (nextIdx < 0) return handlePartyWipe(state2);
   const nextCreature = player.party[nextIdx];
+  battleDebug(`party swap after faint next=${nextCreature.nickname} index=${nextIdx}`);
   const updatedBattle = {
     ...battle,
     player: createBattleParticipant(nextCreature),
@@ -5876,7 +6560,7 @@ function handleBattleWin(state2, returnScreen) {
   if (!battle) return state2;
   const xpGain = calcXpReward(battle.enemy.creature);
   const creditGain = calcCreditReward(battle.enemy.creature);
-  engineDebug(`battle win context=${battle.context} enemy=${battle.enemy.creature.nickname} xp=${xpGain} credits=${creditGain} return=${returnScreen}`);
+  battleDebug(`battle win context=${battle.context} enemy=${battle.enemy.creature.nickname} xp=${xpGain} credits=${creditGain} return=${returnScreen}`);
   const { creature: leveled, leveledUp, levels } = addXp(player.party[battle.playerActiveIndex], xpGain);
   const newParty = [...player.party];
   newParty[battle.playerActiveIndex] = leveled;
@@ -5902,7 +6586,7 @@ function handleBattleWin(state2, returnScreen) {
         s = { ...s, dungeon: { ...s.dungeon, bossDefeated: true } };
       }
       if (s.player.defeatedBosses.length === TOTAL_BOSSES && !s.player.finalKeyUnlocked) {
-        engineDebug("all bosses defeated; entering final key input");
+        battleDebug("all bosses defeated; entering final key input");
         s = {
           ...s,
           screen: "final_key_input",
@@ -5920,7 +6604,7 @@ function handleCatch(state2, caught, returnScreen) {
   const { player } = state2;
   let s = state2;
   const isBoss = caught.isBoss;
-  engineDebug(`capture success creature=${caught.nickname} boss=${isBoss} return=${returnScreen}`);
+  battleDebug(`capture success creature=${caught.nickname} boss=${isBoss} return=${returnScreen}`);
   let newParty = [...player.party];
   let newStorage = [...player.storage];
   if (newParty.length < 4) {
@@ -5946,7 +6630,7 @@ function handleCatch(state2, caught, returnScreen) {
       s = addMessage(s, `Recovered key piece ${progress.keyPiece.piece} from ${progress.keyPiece.bossName}.`);
     }
     if (s.player.defeatedBosses.length === TOTAL_BOSSES && !s.player.finalKeyUnlocked) {
-      engineDebug("all bosses captured/cleared; entering final key input");
+      battleDebug("all bosses captured/cleared; entering final key input");
       s = {
         ...s,
         screen: "final_key_input",
@@ -6036,6 +6720,7 @@ function handleMenu(state2, key) {
     if (selected === "Saved Exploits") return { ...state2, screen: "storage_view", menuCursor: 0, previousScreen: "menu", menuReturnScreen: prev };
     if (selected === "Scripts") return openScriptsTerminal({ ...state2, previousScreen: "menu", menuReturnScreen: prev }, "menu");
     if (selected === "Patches") return { ...state2, screen: "inventory", menuCursor: 0, previousScreen: "menu", menuReturnScreen: prev, itemUseContext: "field" };
+    if (selected === "Game Log") return { ...state2, screen: "game_log", previousScreen: "menu", menuReturnScreen: prev, terminalScroll: Math.max(0, (state2.player.gameLog ?? []).length - Math.max(6, getTerminalSize().rows - 5)) };
     if (selected === "Mute BGM" || selected === "Unmute BGM") {
       const nextMuted = !state2.player.bgmMuted;
       return addMessage({
@@ -6043,8 +6728,15 @@ function handleMenu(state2, key) {
         player: { ...state2.player, bgmMuted: nextMuted }
       }, `Audio: BGM ${nextMuted ? "Muted" : "Unmuted"}`);
     }
+    if (selected === "Show Coordinates" || selected === "Hide Coordinates") {
+      const nextShowCoordinates = !state2.player.showCoordinates;
+      return addMessage({
+        ...state2,
+        player: { ...state2.player, showCoordinates: nextShowCoordinates }
+      }, `Coordinate trace ${nextShowCoordinates ? "enabled" : "disabled"}.`);
+    }
     if (selected === "Save Game") return { ...state2, screen: "save_select", menuCursor: 0, previousScreen: "menu", menuReturnScreen: prev };
-    if (selected === "Quit to Title") return { ...state2, screen: "title", menuCursor: 0 };
+    if (selected === "Quit to Title") return createTitleState();
     if (selected === "Developer Options" && isDevMenuEnabled()) return { ...state2, screen: "developer_options", menuCursor: 0, previousScreen: "menu" };
   }
   return state2;
@@ -6105,7 +6797,7 @@ function handlePartyView(state2, key) {
     return state2;
   }
   if (state2.reorderSourceIdx !== void 0) {
-    if (isCancel(key) || key === "r" || key === "R") {
+    if (isCancel(key) || key === KEY.r || key === KEY.R) {
       return { ...state2, reorderSourceIdx: void 0 };
     }
     if (isUp(key)) return { ...state2, menuCursor: (state2.menuCursor - 1 + partySize) % partySize };
@@ -6132,20 +6824,9 @@ function handlePartyView(state2, key) {
     return state2;
   }
   if (isCancel(key)) return { ...state2, screen: "menu", menuCursor: getMenuOptionIndex(state2, "Exploits"), previousScreen: state2.menuReturnScreen ?? "overworld", reorderSourceIdx: void 0 };
-  if (key === KEY.s || key === KEY.S) {
-    const c = state2.player.party[state2.menuCursor];
-    if (!c) return addMessage(state2, "No exploit in this slot.");
-    if (state2.player.party.filter(Boolean).length <= 1) return addMessage(state2, "You cannot send your final active exploit to Exploit Storage.");
-    const newParty = state2.player.party.filter((_, i) => i !== state2.menuCursor);
-    const newStorage = [...state2.player.storage, c];
-    return addMessage(
-      { ...state2, player: { ...state2.player, party: newParty, storage: newStorage }, menuCursor: 0 },
-      `${c.nickname} moved to Exploit Storage.`
-    );
-  }
   if (isUp(key)) return { ...state2, menuCursor: (state2.menuCursor - 1 + partySize) % partySize };
   if (isDown(key)) return { ...state2, menuCursor: (state2.menuCursor + 1) % partySize };
-  if (key === "r" || key === "R") {
+  if (key === KEY.r || key === KEY.R) {
     const c = state2.player.party[state2.menuCursor];
     if (!c) return addMessage(state2, "No exploit in this slot.");
     if (partySize <= 1) return addMessage(state2, "You need at least two active exploits to reorder the stack.");
@@ -6330,17 +7011,13 @@ function handleSecretUnlock(state2, key) {
 }
 function handleTutorialComplete(state2, key) {
   if (!isConfirm(key) && !isCancel(key)) return state2;
-  return {
-    ...createInitialState(),
-    screen: "title",
-    splashFrame: void 0,
-    menuCursor: 0
-  };
+  return createTitleState();
 }
 function handleKey(state2, key) {
   if (!TEXT_ENTRY_SCREENS.has(state2.screen) && !isAllowedControlKey(key)) {
     return state2;
   }
+  logRuntimeInput(state2, key);
   switch (state2.screen) {
     case "splash":
       return handleSplash(state2);
@@ -6358,8 +7035,12 @@ function handleKey(state2, key) {
       return handleLoadGame(state2, key);
     case "scripts_terminal":
       return handleScriptsTerminal(state2, key);
+    case "flag_terminal":
+      return handleFlagTerminal(state2, key);
     case "debug_log":
       return handleDebugLog(state2, key);
+    case "game_log":
+      return handleGameLog(state2, key);
     case "final_key_input":
       return handleFinalKeyInput(state2, key);
     case "overworld":
@@ -6402,7 +7083,7 @@ function renderState(state2) {
       renderSplash(state2.splashFrame ?? 0);
       break;
     case "title":
-      renderTitle(state2.menuCursor, state2.messages[state2.messages.length - 1] ?? "");
+      renderTitle(state2.menuCursor, state2.titleMessage || DEFAULT_TITLE_MESSAGE);
       break;
     case "new_game_name":
       renderNameInput(state2.nameInput ?? "");
@@ -6420,10 +7101,16 @@ function renderState(state2) {
       renderLoadGame(getSaveSlots(), state2.menuCursor);
       break;
     case "scripts_terminal":
-      renderScriptsTerminal(state2);
+      renderTerminalBackdrop(state2, "SCRIPT TERMINAL");
+      break;
+    case "flag_terminal":
+      renderTerminalBackdrop(state2, "FLAG TERMINAL");
       break;
     case "debug_log":
-      renderDebugLog(state2);
+      renderTerminalBackdrop(state2, "DEBUG LOG");
+      break;
+    case "game_log":
+      renderTerminalBackdrop(state2, "GAME LOG");
       break;
     case "final_key_input":
       renderFinalKeyInput(state2);
@@ -6488,13 +7175,10 @@ function commitState(next) {
   if (next === state) return;
   const prevScreen = state.screen;
   const nextScreen = next.screen;
-  const prevZone = state.player?.currentZone ?? "none";
-  const nextZone = next.player?.currentZone ?? "none";
-  const prevPos = state.player?.position ? `(${state.player.position.x},${state.player.position.y})` : "n/a";
-  const nextPos = next.player?.position ? `(${next.player.position.x},${next.player.position.y})` : "n/a";
   state = next;
-  if (prevScreen !== nextScreen || prevZone !== nextZone || prevPos !== nextPos) {
-    engineDebug(`state ${prevScreen} -> ${nextScreen} zone ${prevZone} -> ${nextZone} pos ${prevPos} -> ${nextPos}`);
+  syncDebugConfigForState(state);
+  if (prevScreen !== nextScreen) {
+    engineDebug(`state screen ${prevScreen} -> ${nextScreen}`);
   }
   renderState(state);
   syncAudioForState(state);
@@ -6593,13 +7277,22 @@ function resizeEmbeddedRuntime(cols, rows) {
   renderState(state);
 }
 function sendKeyToRuntime(key) {
-  commitState(handleKey(state, key));
+  syncDebugConfigForState(state);
+  try {
+    commitState(handleKey(state, key));
+  } catch (error) {
+    engineDebug(`runtime input fault screen=${state.screen} error=${error?.message ?? error}`);
+    commitState({
+      ...createTitleState(formatTitleRuntimeError(error))
+    });
+  }
 }
 function getRuntimeState() {
   return state;
 }
 export {
   KEY,
+  getDebugLogSnapshot,
   getRuntimeState,
   resizeEmbeddedRuntime,
   sendKeyToRuntime,

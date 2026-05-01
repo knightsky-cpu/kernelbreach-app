@@ -1214,6 +1214,11 @@ var RARITY_BASE_STAT = {
   epic: 4,
   legendary: 5
 };
+var ENEMY_BASELINE_ADVANTAGE = 1.05;
+function getEnemyLateGameDurabilityScale(level) {
+  const overLevel = Math.max(0, level - 20);
+  return 1 + overLevel * 0.01;
+}
 function mulberry32(seed) {
   return function() {
     seed |= 0;
@@ -1442,6 +1447,15 @@ function sanitizeCreatureList(creatures, maxLength) {
   if (!Array.isArray(creatures)) return [];
   return creatures.map(sanitizeCreature).filter(Boolean).slice(0, maxLength);
 }
+function applyPlayerMaxHpFormula(creature) {
+  if (!creature) return creature;
+  const maxHp = calcPlayerMaxHp(creature.level, creature.baseCon, creature.allocatedCon, creature.rarity);
+  return {
+    ...creature,
+    maxHp,
+    currentHp: clampInt(creature.currentHp, 0, maxHp, maxHp)
+  };
+}
 function rollWildCreature(zone, species, targetLevel) {
   const seed = fnv1a(`${species}-${Date.now()}-${Math.random()}`);
   const rng = mulberry32(seed);
@@ -1523,7 +1537,7 @@ function rollStarterCreature() {
   const baseStat = RARITY_BASE_STAT[rarity];
   const baseStr = Math.max(1, baseStat + Math.floor(rng() * 2));
   const baseCon = Math.max(1, baseStat + Math.floor(rng() * 2));
-  const maxHp = calcMaxHp(1, baseCon, 0);
+  const maxHp = calcPlayerMaxHp(1, baseCon, 0, rarity);
   return {
     id: generateId(),
     species,
@@ -1556,8 +1570,8 @@ function rollSecretLegendary() {
     hat: "crown",
     rarity: "legendary",
     level: 50,
-    maxHp: calcMaxHp(50, 10, 10),
-    currentHp: calcMaxHp(50, 10, 10),
+    maxHp: calcPlayerMaxHp(50, 10, 10, "legendary"),
+    currentHp: calcPlayerMaxHp(50, 10, 10, "legendary"),
     baseStr: 10,
     baseCon: 10,
     allocatedStr: 10,
@@ -1616,7 +1630,7 @@ function normalizePlayerProgress(player) {
   if (!isPlainObject(player)) return null;
   const finalSecretKey = normalizeFinalSecretKey(typeof player.finalSecretKey === "string" ? player.finalSecretKey : "");
   const currentZone = ZONE_CONFIGS[player.currentZone] ? player.currentZone : "central";
-  const party = sanitizeCreatureList(player.party, 4).map(normalizeFinalRewardCreature).filter(Boolean);
+  const party = sanitizeCreatureList(player.party, 4).map(normalizeFinalRewardCreature).map(applyPlayerMaxHpFormula).filter(Boolean);
   if (party.length === 0) return null;
   const defeatedBosses = sanitizeDefeatedBosses(player.defeatedBosses);
   const hiddenScriptsByZone = sanitizeHiddenScriptsByZone(player.hiddenScriptsByZone, finalSecretKey);
@@ -1655,7 +1669,7 @@ function normalizePlayerProgress(player) {
     name: sanitizePlayerName(player.name),
     id: sanitizeString(player.id, 32, generateId()) || generateId(),
     party,
-    storage: sanitizeCreatureList(player.storage, 500).map(normalizeFinalRewardCreature).filter(Boolean),
+    storage: sanitizeCreatureList(player.storage, 500).map(normalizeFinalRewardCreature).map(applyPlayerMaxHpFormula).filter(Boolean),
     gold: clampInt(player.gold, 0, 9999999, 0),
     items: sanitizeItems(player.items),
     defeatedBosses,
@@ -1677,7 +1691,8 @@ function normalizePlayerProgress(player) {
     allDungeonsUnlocked: sanitizeBoolean(player.allDungeonsUnlocked, false),
     noEncounters: sanitizeBoolean(player.noEncounters, false),
     bgmMuted: sanitizeBoolean(player.bgmMuted, false),
-    showCoordinates: sanitizeBoolean(player.showCoordinates, false),
+    showCoordinates: player.coordinateDefaultMigrated === true ? sanitizeBoolean(player.showCoordinates, true) : true,
+    coordinateDefaultMigrated: true,
     debugChannels,
     audioDebug: sanitizeBoolean(debugChannels.audio, false),
     verboseDebug: sanitizeBoolean(player.verboseDebug, false)
@@ -1825,13 +1840,37 @@ function discoverFlagTerminal(state2) {
   };
 }
 function calcMaxHp(level, con, allocated) {
-  return 20 + level * 3 + con * 5 + allocated * 2;
+  const base = 20 + level * 3 + Math.ceil(con * ENEMY_BASELINE_ADVANTAGE) * 5 + allocated * 2;
+  return Math.floor(base * getEnemyLateGameDurabilityScale(level));
+}
+function getLevelStatBaseline(level, rarity) {
+  const rarityBase = RARITY_BASE_STAT[rarity] ?? RARITY_BASE_STAT.common;
+  return Math.max(1, rarityBase - 1 + Math.floor(level / 2));
+}
+function getPlayerEffectiveStr(creature) {
+  return Math.max(creature.baseStr, getLevelStatBaseline(creature.level, creature.rarity));
+}
+function getPlayerEffectiveCon(creature) {
+  return Math.max(creature.baseCon, getLevelStatBaseline(creature.level, creature.rarity));
+}
+function calcPlayerMaxHp(level, con, allocated, rarity = "common") {
+  const baselineCon = Math.max(con, getLevelStatBaseline(level, rarity));
+  return 20 + level * 3 + baselineCon * 5 + allocated * 2;
 }
 function calcAttack(level, str, allocated) {
-  return str * 2 + Math.floor(allocated * 0.5) + level * 2;
+  return Math.ceil(str * ENEMY_BASELINE_ADVANTAGE) * 2 + Math.floor(allocated * 0.95) + level * 2;
 }
 function calcDefense(level, con, allocated) {
-  return con * 2 + Math.floor(allocated * 0.5) + level;
+  const base = Math.ceil(con * ENEMY_BASELINE_ADVANTAGE) * 2 + Math.floor(allocated * 0.95) + level;
+  return Math.floor(base * getEnemyLateGameDurabilityScale(level));
+}
+function calcPlayerAttack(level, str, allocated, rarity = "common") {
+  const baselineStr = Math.max(str, getLevelStatBaseline(level, rarity));
+  return baselineStr * 2 + Math.floor(allocated * 0.75) + level * 2;
+}
+function calcPlayerDefense(level, con, allocated, rarity = "common") {
+  const baselineCon = Math.max(con, getLevelStatBaseline(level, rarity));
+  return baselineCon * 2 + Math.floor(allocated * 0.75) + level;
 }
 function battleScore(c) {
   return c.level * 3 + (c.baseStr + c.allocatedStr) + (c.baseCon + c.allocatedCon);
@@ -1847,7 +1886,7 @@ function addXp(creature, amount) {
     c.level += 1;
     c.skillPoints += 2;
     c.xpToNext = xpForLevel(c.level + 1);
-    c.maxHp = calcMaxHp(c.level, c.baseCon, c.allocatedCon);
+    c.maxHp = calcPlayerMaxHp(c.level, c.baseCon, c.allocatedCon, c.rarity);
     c.currentHp = Math.min(c.currentHp + 5, c.maxHp);
     levelsGained++;
   }
@@ -1863,7 +1902,7 @@ function allocateStat(c, stat) {
     updated.allocatedStr = c.allocatedStr + 1;
   } else {
     updated.allocatedCon = c.allocatedCon + 1;
-    updated.maxHp = calcMaxHp(updated.level, updated.baseCon, updated.allocatedCon);
+    updated.maxHp = calcPlayerMaxHp(updated.level, updated.baseCon, updated.allocatedCon, updated.rarity);
     updated.currentHp = Math.min(updated.currentHp, updated.maxHp);
   }
   return updated;
@@ -2100,14 +2139,14 @@ var SKILLS = {
     description: "Target vulnerabilities to lower defense.",
     power: 10,
     acc: 0.9,
-    effect: { type: "debuff", stat: "defense", amount: 10, duration: 3, log: "Target's firewall is corroding!" }
+    effect: { type: "debuff", stat: "defense", defensePercent: 0.12, minAmount: 2, duration: 3, log: "Target's firewall is corroding!" }
   },
   "Prompt Injection": {
     name: "Prompt Injection",
     description: "Inject malicious code for damage over time.",
     power: 5,
     acc: 0.85,
-    effect: { type: "dot", amount: 3, duration: 4, log: "Malicious process is draining memory!" }
+    effect: { type: "dot", amount: 3, mbPercent: 0.06, duration: 4, log: "Malicious process is draining memory!" }
   },
   "Cold-Boot": {
     name: "Cold-Boot",
@@ -2257,14 +2296,36 @@ function getStatusMod(participant, type, stat) {
   }
   return mod;
 }
-function calcDamage(attackerParticipant, defenderParticipant, skillPower = 20) {
+function calcDamage(attackerParticipant, defenderParticipant, skillPower = 20, attackerKey = "enemy", defenderKey = "enemy") {
   const attacker = attackerParticipant.creature;
   const defender = defenderParticipant.creature;
   const atkMod = getStatusMod(attackerParticipant, "buff", "attack") - getStatusMod(attackerParticipant, "debuff", "attack");
   const defMod = getStatusMod(defenderParticipant, "buff", "defense") - getStatusMod(defenderParticipant, "debuff", "defense");
-  const atk = calcAttack(attacker.level, attacker.baseStr, attacker.allocatedStr) + atkMod + Math.floor(skillPower / 2);
-  const def = calcDefense(defender.level, defender.baseCon, defender.allocatedCon) + defenderParticipant.tempDefBonus + defMod;
-  return Math.max(1, Math.floor(atk - def * 0.6));
+  const atkBase = attackerKey === "player" ? calcPlayerAttack(attacker.level, attacker.baseStr, attacker.allocatedStr, attacker.rarity) : calcAttack(attacker.level, attacker.baseStr, attacker.allocatedStr);
+  const defBase = defenderKey === "player" ? calcPlayerDefense(defender.level, defender.baseCon, defender.allocatedCon, defender.rarity) : calcDefense(defender.level, defender.baseCon, defender.allocatedCon);
+  const atk = Math.max(1, atkBase + atkMod);
+  const def = Math.max(1, defBase + defenderParticipant.tempDefBonus + defMod);
+  const basePower = Math.max(1, skillPower + Math.floor(attacker.level * 0.6));
+  const rawDamage = Math.floor(basePower * (atk / def));
+  const maxDamage = Math.max(1, Math.floor(defender.maxHp * 0.35));
+  return Math.max(1, Math.min(maxDamage, rawDamage));
+}
+function calcParticipantDefense(participant, participantKey) {
+  const creature = participant.creature;
+  return participantKey === "player"
+    ? calcPlayerDefense(creature.level, creature.baseCon, creature.allocatedCon, creature.rarity)
+    : calcDefense(creature.level, creature.baseCon, creature.allocatedCon);
+}
+function resolveSkillEffect(effect, actor, target, actorKey, targetKey) {
+  const resolved = { ...effect };
+  if (resolved.type === "dot" && Number.isFinite(resolved.mbPercent)) {
+    resolved.amount = Math.max(resolved.amount ?? 0, 0) + Math.floor(target.creature.maxHp * resolved.mbPercent);
+  }
+  if (resolved.type === "debuff" && resolved.stat === "defense" && Number.isFinite(resolved.defensePercent)) {
+    const targetDefense = calcParticipantDefense(target, targetKey);
+    resolved.amount = Math.max(resolved.minAmount ?? 1, Math.floor(targetDefense * resolved.defensePercent));
+  }
+  return resolved;
 }
 function applySkill(battle, actorKey, targetKey, skillName) {
   const skill = SKILLS[skillName];
@@ -2278,7 +2339,7 @@ function applySkill(battle, actorKey, targetKey, skillName) {
   }
   battle.log.push(`${actor.creature.nickname} used ${skillName}!`);
   if (skill.power > 0) {
-    const dmg = calcDamage(actor, target, skill.power);
+    const dmg = calcDamage(actor, target, skill.power, actorKey, targetKey);
     target.creature.currentHp = Math.max(0, target.creature.currentHp - dmg);
     battle.log.push(`${target.creature.nickname} took ${dmg} damage!`);
   }
@@ -2289,15 +2350,17 @@ function applySkill(battle, actorKey, targetKey, skillName) {
         { type: "debuff", stat: "defense", amount: 15, duration: 3, log: "Defense systems collapsing!" },
         { type: "debuff", stat: "attack", amount: 15, duration: 3, log: "Attack sub-routines failing!" }
       ];
-      const effect = effects[Math.floor(Math.random() * effects.length)];
+      const effect = resolveSkillEffect(effects[Math.floor(Math.random() * effects.length)], actor, target, actorKey, targetKey);
       target.statuses.push({ ...effect });
       battle.log.push(effect.log);
     } else if (skill.effect.type === "buff") {
-      actor.statuses.push({ ...skill.effect });
-      battle.log.push(skill.effect.log);
+      const effect = resolveSkillEffect(skill.effect, actor, target, actorKey, targetKey);
+      actor.statuses.push({ ...effect });
+      battle.log.push(effect.log);
     } else {
-      target.statuses.push({ ...skill.effect });
-      battle.log.push(skill.effect.log);
+      const effect = resolveSkillEffect(skill.effect, actor, target, actorKey, targetKey);
+      target.statuses.push({ ...effect });
+      battle.log.push(effect.log);
     }
   }
   return battle;
@@ -2513,7 +2576,7 @@ function planBattleAction(state2, action, playerParty, playerItems, options) {
     initial.log.push(`${initial.player.creature.nickname} braces!`);
     steps.push(animationStep("defend", "player", 5));
     const resolved = cloneBattle(initial);
-    const defense = calcDefense(resolved.player.creature.level, resolved.player.creature.baseCon, resolved.player.creature.allocatedCon);
+    const defense = calcPlayerDefense(resolved.player.creature.level, resolved.player.creature.baseCon, resolved.player.creature.allocatedCon, resolved.player.creature.rarity);
     const bonus = Math.floor(defense * 0.3);
     battleDebug(`player defend resolved bonus=${bonus}`);
     resolved.player = { ...resolved.player, isDefending: true, tempDefBonus: bonus };
@@ -3195,8 +3258,9 @@ function createAudioManager() {
         return;
       }
       if (muted) {
+        if (currentTrackId === trackId && !currentProcess) return;
         currentTrackId = trackId;
-        stopPlayback("muted");
+        if (currentProcess) stopPlayback("muted");
         return;
       }
       if (trackId === currentTrackId && currentProcess) return;
@@ -4500,9 +4564,9 @@ function renderPartyView(state2) {
     const speciesDisplay = SPECIES_NAMES[c.species] ?? c.species;
     rows.push(`\u2502 ${pad(`${selected ? color("\u25B6 ", BRIGHT_YELLOW) : "  "}${rColor}${name}${RESET}${sp}${reorderTag}  ${dim(`Lv${c.level} ${speciesDisplay}`)}`, W - 4)} \u2502`);
     rows.push(`\u2502 ${pad(`   MB: ${hpBar(c.currentHp, c.maxHp, 12)} ${c.currentHp}/${c.maxHp}  XP: ${xpBar(c.xp, c.xpToNext, 8)}`, W - 4)} \u2502`);
-    const str = c.baseStr + c.allocatedStr;
-    const con = c.baseCon + c.allocatedCon;
-    rows.push(`\u2502 ${pad(`   ATK:${calcAttack(c.level, c.baseStr, c.allocatedStr)} DEF:${calcDefense(c.level, c.baseCon, c.allocatedCon)}  STR:${str}(+${c.allocatedStr}) CON:${con}(+${c.allocatedCon})  ${RARITY_STARS[c.rarity]}`, W - 4)} \u2502`);
+    const str = getPlayerEffectiveStr(c) + c.allocatedStr;
+    const con = getPlayerEffectiveCon(c) + c.allocatedCon;
+    rows.push(`\u2502 ${pad(`   ATK:${calcPlayerAttack(c.level, c.baseStr, c.allocatedStr, c.rarity)} DEF:${calcPlayerDefense(c.level, c.baseCon, c.allocatedCon, c.rarity)}  STR:${str}(+${c.allocatedStr}) CON:${con}(+${c.allocatedCon})  ${RARITY_STARS[c.rarity]}`, W - 4)} \u2502`);
     if (selected && c.skillPoints > 0) {
       rows.push(`\u2502 ${pad(`   ${color("[Enter] Spend skill points", BRIGHT_CYAN)}`, W - 4)} \u2502`);
     }
@@ -5284,7 +5348,8 @@ function createNewPlayer(name) {
     allDungeonsUnlocked: false,
     noEncounters: false,
     bgmMuted: false,
-    showCoordinates: false,
+    showCoordinates: true,
+    coordinateDefaultMigrated: true,
     debugChannels: {},
     audioDebug: false,
     verboseDebug: false
@@ -5292,7 +5357,7 @@ function createNewPlayer(name) {
 }
 function rollTutorialCreature() {
   const species = "Bit-Blob";
-  const maxHp = calcMaxHp(3, 2, 0);
+  const maxHp = calcPlayerMaxHp(3, 2, 0, "common");
   return {
     id: generateId(),
     species,
@@ -5343,7 +5408,8 @@ function createTutorialPlayer() {
     allDungeonsUnlocked: false,
     noEncounters: true,
     bgmMuted: false,
-    showCoordinates: false,
+    showCoordinates: true,
+    coordinateDefaultMigrated: true,
     debugChannels: {},
     audioDebug: false,
     verboseDebug: false
